@@ -1,0 +1,8 @@
+# Playgrounds
+playground*
+
+# Rfiles
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
