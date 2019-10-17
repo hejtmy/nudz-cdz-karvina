@@ -1,6 +1,9 @@
 # Playgrounds
 playground*
 
+# Outputs
+*.csv
+
 # Rfiles
 .Rproj.user
 .Rhistory
