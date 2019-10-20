@@ -28,13 +28,12 @@ folder_output <- function(folder){
 # script ----
 UNITY_DIR <- "E:/Google Drive/NUDZ/Projects/CDZ Karvina/VR-tasks/logy/1-pilot_VR-pen-paper/"
 TYPES <- c("house", "supermarket")
-type <- TYPES[2]
-pth <- file.path(UNITY_DIR, type)
-folders <- list.files(pth, full.names = TRUE)
-folders <- folders[!grepl("[.]ini", folders)] #removes potential .ini on windows
 #folders <- folders[1:4]
 df <- data.frame()
 for(type in TYPES){
+  pth <- file.path(UNITY_DIR, type)
+  folders <- list.files(pth, full.names = TRUE)
+  folders <- folders[!grepl("[.]ini", folders)] #removes potential .ini on windows
   for(folder in folders){
     output <- folder_output(folder)
     df <- base::rbind(df, output)
