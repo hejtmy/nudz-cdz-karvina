@@ -5,8 +5,16 @@
 #' @param version: either settings version "A" or "B". Needs to be capitalized
 #' 
 #' WHY are tehre multiple exps???
-load_participant <- function(dir, id, tasklist, tasklist_version){
-  participant_folder <- file.path(dir, id)
+load_participants_supermarket <- function(data_dir, tasklists){
+  folders <- list.files(file.path(data_dir, "supermarket"), full.names = TRUE)
+  result <- list() 
+  for(folder in folders){
+    if(!dir.exists(folder)) next
+    message("Loading participant in folder ", folder)
+    exps <- load_participant_supermarket(data_dir, basename(folder), tasklists)
+    result[[basename(folder)]] <- exps
+  }
+  return(result)
 }
 
 load_participant_supermarket <- function(data_dir, id, tasklists){
