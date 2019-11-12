@@ -39,6 +39,21 @@ load_tasklists <- function(data_dir) {
   return(list(A = settingsA, B = settingsB))
 }
 
+### Super validation ------
+
+supermarkets_are_valid <- function(supermarkets){
+  for(name in names(supermarkets)){
+    exps <- supermarkets[[name]]
+    for(i in length(exps)){
+      exp <- exps[[i]]
+      valid <- TRUE
+      valid <- !is.null(exp$data$results_log$data)
+      if(!valid) warning(name, " ", exp$timestamp, " is not valid")
+    }
+  }
+}
+
+
 # HOUSE ------------------
 load_participant_house <- function(data_dir, id){
   participant_folder <- file.path(data_dir, "supermarket", id)

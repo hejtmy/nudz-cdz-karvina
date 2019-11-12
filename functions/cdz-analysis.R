@@ -1,6 +1,7 @@
 supermarket_results.participants <- function(participants){
   results <- data.frame()
   for(participant in names(participants)){
+    message("analysing ", participant)
     participant_results <- supermarket_results.participant(participants[[participant]])
     results <- rbind(results, participant_results)
   }
