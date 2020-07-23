@@ -7,6 +7,7 @@ supermarket_results.participants <- function(participants){
   }
   return(results)
 }
+
 supermarket_results.participant <- function(participant){
   results <- data.frame()
   for(i in 1:length(participant)){
@@ -20,6 +21,6 @@ supermarket_results.participant <- function(participant){
 }
 
 supermarket_results.session <- function(session){
-  df <- brainvr.supermarket::task_performance_all(session)
+  df <- brainvr.supermarket::supermarket_performance_all(session)
   return(df)
 }
