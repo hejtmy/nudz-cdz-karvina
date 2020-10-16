@@ -4,10 +4,13 @@ GS_RUN2_DEMOGRAPHICS_RBANS <- "1qMdiLYY7EIbNvoRsE5knjBB24zXT7hgJNUCmwMX7IwY"
 get_sheet_ids <- function(preprocess = TRUE){
   df_ids <- googlesheets4::range_read(GS_RUN2_DEMOGRAPHICS_RBANS, sheet = "ID")
   if(!preprocess) return(df_ids)
-  colnames(df_ids) <- c("rbansid", "vrid", "name", "finished", "is_ok", "note")
-  df_ids$name <- NULL
-  df_ids$is_ok <- df_ids$is_ok == 1
+  colnames(df_ids) <- tolower(colnames(df_ids))
+  df_ids$is_ok <- df_ids$isok == 1
+  df_ids$rbans_ok <- df_ids$rbansok == 1
+  df_ids$logy_ok <- df_ids$logyok == 1
   df_ids$finished <- df_ids$finished == 1
+  df_ids[, c("name", "isok", "rbansok", "logyok")] <- NULL
+  
   return(df_ids)
 }
 get_sheet_demographics <- function(preprocess = TRUE){
@@ -28,6 +31,12 @@ get_sheet_rbans <- function(preprocess = TRUE){
   if(!preprocess) return(df_rbans)
   colnames(df_rbans) <- tolower(colnames(df_rbans))
   colnames(df_rbans) <- gsub("rbansbaseline_", "", colnames(df_rbans))
+  df_rbans <- rename(df_rbans, iq_kratkodobapamet = kratkodobapamet,
+         iq_dlouhodobapamet = dlouhodobapamet,
+         iq_vizuoprostorschopnosti = vizuoprostorschopnosti,
+         iq_pozornost = pozornost,
+         iq_rec = rec, 
+         iq_celek = celek)
   return(df_rbans) 
 }
 
