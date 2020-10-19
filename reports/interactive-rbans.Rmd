@@ -1,0 +1,94 @@
+---
+title: "Interactive report of the RBANS results"
+author: "Lukáš 'hejtmy' Hejtmánek"
+date: "25/03/2020"
+output: 
+  flexdashboard::flex_dashboard:
+    vertical_layout: scroll
+    orientation: rows
+---
+```{r setup, message=FALSE, warning=FALSE, results='hide', echo=FALSE}
+library(plotly)
+library(crosstalk)
+library(knitr)
+library(tidyverse)
+knitr::opts_chunk$set(echo = FALSE)
+opts_knit$set(root.dir = "../")
+
+source("../functions/cdz-loading-pilot.R")
+source("../functions/cdz-analysis.R")
+source("../functions/cdz-helpers.R")
+source("../functions/cdz-getters.R")
+source("../functions/cdz-preprocess.R")
+```
+
+```{r loading}
+df_ids <- get_sheet_ids()
+df_demographics <- get_sheet_demographics()
+df_sessions <- get_sheet_sessions()
+df_rbans <- get_sheet_rbans()
+```
+
+```{r preprocessing}
+df_rbans <- add_session_to_rbans(df_rbans, df_demographics)
+df_rbans_long <- df_rbans %>%
+    pivot_longer(-c(rbansid, trenink, diagnosis, first_training, session),
+                 names_to = "subtest", values_to = "score")
+df_rbans_long <- df_rbans_long %>%
+  group_by(trenink, first_training, subtest) %>%
+  summarise(group_avg = mean(score, na.rm = TRUE)) %>%
+  ungroup() %>%
+  right_join(df_rbans_long, by = c("trenink", "first_training", "subtest"))
+
+df_rbans_long <- df_rbans_long %>%
+  arrange(rbansid, session)
+```
+
+```{r}
+shared_rbans <- SharedData$new(df_rbans_long)
+```
+
+Row {data-height=200}
+---------------------------
+### Visualisation of RBANS in different sessions
+```{r}
+selection_widget <- bscols(
+  widths = 6,
+  filter_select("subtest", "Subtest", shared_rbans, ~subtest, multiple = FALSE),
+  filter_select("first_training", "Group", shared_rbans, ~first_training, multiple = FALSE)
+)
+selection_widget
+```
+
+Row {data-height=600}
+---------------------------
+
+### Visualisation of RBANS in different sessions
+
+```{r}
+plot_ly(shared_rbans, x = ~session, y = ~score) %>%
+  add_trace(type = "box",  color = ~as.factor(session),
+            hoverinfo = "y", showlegend = TRUE, boxmean = TRUE) %>%
+  layout(showlegend = FALSE, autosize = TRUE, height = 500)
+```
+
+### Visualisation of RBANS in different sessions
+
+```{r}
+plot_ly(shared_rbans, x = ~session, y = ~score) %>%
+  add_trace(type = "scatter", x=~session, y = ~score,
+            mode = "lines+markers", split = ~rbansid) %>%
+  layout(showlegend = FALSE, autosize = TRUE, height = 500)
+```
+
+```{r eval = FALSE}
+df_rbans_long %>%
+  filter(subtest == "iq_celek") %>%
+  filter(first_training == "TP") %>%
+  plot_ly(x= ~session, y = ~score) %>%
+   add_trace(type = "box",  color = ~as.factor(session),
+            hoverinfo = "y", showlegend = TRUE, boxmean = TRUE) %>%
+  add_trace(type = "scatter", y = ~score,
+            mode = "lines+markers", split = ~rbansid) %>%
+  layout(showlegend=FALSE)
+````

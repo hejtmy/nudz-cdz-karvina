@@ -1,0 +1,99 @@
+---
+title: "Rbans-output"
+author: "Lukáš 'hejtmy' Hejtmánek"
+date: "15/10/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(brainvr.supermarket)
+library(googlesheets4)
+library(tidyverse)
+library(knitr)
+library(plotly)
+knitr::opts_chunk$set(echo = FALSE)
+
+source("../functions/cdz-loading-pilot.R")
+source("../functions/cdz-analysis.R")
+source("../functions/cdz-helpers.R")
+source("../functions/cdz-getters.R")
+source("../functions/cdz-preprocess.R")
+```
+
+```{r loading}
+df_ids <- get_sheet_ids()
+df_demographics <- get_sheet_demographics()
+df_sessions <- get_sheet_sessions()
+df_rbans <- get_sheet_rbans()
+```
+
+```{r preprocessing}
+df_rbans <- add_session_to_rbans(df_rbans, df_demographics)
+df_rbans_long <- df_rbans %>%
+    pivot_longer(-c(rbansid, trenink, diagnosis, first_training, session),
+                 names_to = "subtest", values_to = "score")
+df_rbans_long <- df_rbans_long %>%
+  group_by(trenink, first_training, subtest) %>%
+  summarise(group_avg = mean(score, na.rm = TRUE)) %>%
+  right_join(df_rbans_long, by = c("trenink", "first_training", "subtest"))
+```
+```{r}
+df_ids %>%
+  count(is_ok, rbans_ok, logy_ok) %>%
+  kable(caption = "Overview of the state of affairs")
+```
+
+```{r}
+
+
+df_rbans_long %>%
+  filter(grepl("iq_", subtest)) %>%
+  plot_ly(x = ~)
+  ggplot(aes(subtest, score, fill = session)) + 
+  geom_boxplot() +
+  geom_line(aes(x = session , y = group_avg, group=subtest), size = 1.25) +
+  facet_wrap(~first_training)
+```
+
+```{r}
+library(lme4)
+df_rbans %>%
+  lmer(iq_celek ~ session + first_training + (1|rbansid), data = .) %>%
+  summary()
+
+ggplot(df_rbans, aes(as.factor(session), iq_celek, fill=trenink)) + 
+  geom_boxplot() +
+  geom_jitter(width = 0.2) +
+  facet_wrap(~first_training)
+
+df_rbans %>%
+  filter(first_training == "TP") %>%
+  glm(iq_celek ~ session ,data = .) %>%
+  summary()
+
+df_rbans %>%
+  filter(first_training == "TP") %>%
+  lmer(iq_celek ~ session + (1|rbansid), data = .) %>%
+  summary()
+
+df_rbans %>%
+  filter(diagnosis == "schizophrenia") %>%
+  ggplot(aes(session, iq_rec)) +
+    geom_line(aes(color=rbansid)) +geom_point() +
+    facet_wrap(~first_training)
+
+## ----
+df_rbans_baseline <- baseline_rbans(df_rbans)
+df_rbans_baseline %>%
+  pivot_longer(-c(rbansid, trenink, diagnosis, first_training), names_to = "subtest") %>%
+  filter(grepl("iq_", subtest)) %>%
+  ggplot(aes(subtest, value, fill = trenink)) +
+    geom_boxplot() +
+    facet_wrap(~first_training) + geom_hline(yintercept = 0)
+
+
+df_ids %>%
+  left_join(select(df_demographics, rbansid, first_training), by = "rbansid") %>%
+  count(is_ok, first_training)
+
+```
