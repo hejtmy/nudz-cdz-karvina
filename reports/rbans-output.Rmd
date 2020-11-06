@@ -74,10 +74,10 @@ df_rbans %>%
   summary()
 
 df_rbans %>%
-  filter(diagnosis == "schizophrenia") %>%
+  filter(!is.na(first_training)) %>%
   ggplot(aes(session, iq_rec)) +
-    geom_line(aes(color=rbansid)) +geom_point() +
-    facet_wrap(~first_training)
+    geom_line(aes(color=rbansid)) + geom_point() +
+    facet_wrap(~c(first_training, diagnosis))
 
 df_rbans_baseline <- baseline_rbans(df_rbans)
 df_rbans_baseline %>%

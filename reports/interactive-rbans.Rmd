@@ -42,13 +42,18 @@ df_rbans_long <- df_rbans_long %>%
 
 df_rbans_long <- df_rbans_long %>%
   arrange(rbansid, session)
+
+df_rbans_long <- df_rbans_long %>%
+  group_by(session, subtest) %>%
+  mutate(scaled_score = (score-mean(score, na.rm = TRUE))/sd(score, na.rm = TRUE)) %>%
+  ungroup()
 ```
 
 ```{r}
 shared_rbans <- SharedData$new(df_rbans_long)
 ```
 
-Row {data-height=400}
+Row {data-height=300}
 ---------------------------
 ### Visualisation of RBANS in different sessions
 ```{r}
@@ -66,7 +71,7 @@ Row {data-height=600}
 ### Visualisation of RBANS in different sessions
 
 ```{r}
-plot_ly(shared_rbans, x = ~session, y = ~score) %>%
+plot_ly(shared_rbans, x = ~session, y = ~scaled_score) %>%
   add_trace(type = "box",  color = ~as.factor(session),
             hoverinfo = "y", showlegend = TRUE, boxmean = TRUE) %>%
   layout(showlegend = FALSE, autosize = TRUE, height = 500)
@@ -75,8 +80,8 @@ plot_ly(shared_rbans, x = ~session, y = ~score) %>%
 ### Visualisation of RBANS in different sessions
 
 ```{r}
-plot_ly(shared_rbans, x = ~session, y = ~score) %>%
-  add_trace(type = "scatter", x=~session, y = ~score,
+plot_ly(shared_rbans, x = ~session, y = ~scaled_score) %>%
+  add_trace(type = "scatter", x=~session, y = ~scaled_score,
             mode = "lines+markers", split = ~rbansid) %>%
   layout(showlegend = FALSE, autosize = TRUE, height = 500)
 ```
@@ -85,10 +90,10 @@ plot_ly(shared_rbans, x = ~session, y = ~score) %>%
 df_rbans_long %>%
   filter(subtest == "iq_celek") %>%
   filter(first_training == "TP") %>%
-  plot_ly(x= ~session, y = ~score) %>%
+  plot_ly(x= ~session, y = ~scaled_score) %>%
    add_trace(type = "box",  color = ~as.factor(session),
             hoverinfo = "y", showlegend = TRUE, boxmean = TRUE) %>%
-  add_trace(type = "scatter", y = ~score,
+  add_trace(type = "scatter", y = ~scaled_score,
             mode = "lines+markers", split = ~rbansid) %>%
   layout(showlegend=FALSE)
 ````
