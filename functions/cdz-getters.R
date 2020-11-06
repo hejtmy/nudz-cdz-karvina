@@ -16,12 +16,12 @@ get_sheet_ids <- function(preprocess = TRUE, overwrite = FALSE){
 get_sheet_demographics <- function(preprocess = TRUE, overwrite = FALSE){
   df_demographics <- googlesheets4::range_read(GS_RUN2_DEMOGRAPHICS_RBANS, 
                                              sheet = "demografie", 
-                                             col_types = "ccccccciiiccc")
+                                             col_types = "ccccccciiiccci")
   if(!preprocess) return(df_demographics)
   colnames(df_demographics) <- c("name", "note", "first_training", "rbans_date",
                                  "rbansid", "retirement", "gender", "age",
                                  "education", "ilness_duration_years", "diagnosis",
-                                 "medication", "other_notes")
+                                 "medication", "other_notes", "GAF")
   return(df_demographics)
 }
 

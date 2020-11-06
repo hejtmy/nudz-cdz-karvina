@@ -44,12 +44,9 @@ df_ids %>%
 ```
 
 ```{r}
-
-
 df_rbans_long %>%
   filter(grepl("iq_", subtest)) %>%
-  plot_ly(x = ~)
-  ggplot(aes(subtest, score, fill = session)) + 
+  ggplot(aes(subtest, score, fill = session)) +
   geom_boxplot() +
   geom_line(aes(x = session , y = group_avg, group=subtest), size = 1.25) +
   facet_wrap(~first_training)
@@ -82,7 +79,6 @@ df_rbans %>%
     geom_line(aes(color=rbansid)) +geom_point() +
     facet_wrap(~first_training)
 
-## ----
 df_rbans_baseline <- baseline_rbans(df_rbans)
 df_rbans_baseline %>%
   pivot_longer(-c(rbansid, trenink, diagnosis, first_training), names_to = "subtest") %>%
@@ -96,4 +92,10 @@ df_ids %>%
   left_join(select(df_demographics, rbansid, first_training), by = "rbansid") %>%
   count(is_ok, first_training)
 
+```
+
+
+```{r}
+unique(df_rbans_long$subtest)
+c("Vybavenifigury", "vybaveniseznamu", "vybavenipovidky")
 ```

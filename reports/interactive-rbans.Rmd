@@ -48,7 +48,7 @@ df_rbans_long <- df_rbans_long %>%
 shared_rbans <- SharedData$new(df_rbans_long)
 ```
 
-Row {data-height=200}
+Row {data-height=400}
 ---------------------------
 ### Visualisation of RBANS in different sessions
 ```{r}
