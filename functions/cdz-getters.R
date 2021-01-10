@@ -41,8 +41,9 @@ get_sheet_rbans <- function(preprocess = TRUE, overwrite = FALSE){
 
 get_sheet_sessions <- function(preprocess = TRUE, overwrite = FALSE){
   GS_RUN2_SESSION <- "1rFm8QnjGw3BQuFfMvGiLUa5hMvg3-8iTP8h5DGMZLlc"
-  df_sessions <- googlesheets4::range_read(GS_RUN2_SESSION, col_types = "ccicci")
+  df_sessions <- googlesheets4::range_read(GS_RUN2_SESSION, col_types = "cciccic")
   if(!preprocess) returnb(df_sessions)
   colnames(df_sessions) <- tolower(colnames(df_sessions))
+  df_sessions$use <- df_sessions$use == 1
   return(df_sessions)
 }
