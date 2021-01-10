@@ -1,0 +1,97 @@
+---
+title: "Supermarket ouptut"
+author: "Lukáš 'hejtmy' Hejtmánek"
+date: "10/01/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+knitr::opts_chunk$set(echo = FALSE)
+df_results <- read.table("../run2-results-supermarket-sessions.csv", sep = ";",
+                           header = TRUE)
+
+df_demographics <- read.table("../demographics.csv", sep = ";", header = TRUE)
+df_ids <- read.table("../information.csv", header = TRUE, sep = ";")
+
+# Combine with demographics
+df_join <- df_demographics %>%
+  left_join(df_ids, by = "rbansid") %>%
+  select(rbansid, vrid) %>% 
+  filter(!is.na(rbansid) & !is.na(vrid))
+
+df_results <- df_results %>%
+  left_join(df_join, by = c("participant" = "vrid"))
+```
+
+```{r}
+df_results <- df_results %>%
+  mutate(total_picked_items = n_correct_items + n_extra_items,
+         correct_ratio = n_correct_items/n_items,
+         extra_ratio = n_extra_items/n_items) %>%
+  group_by(participant, session) %>%
+  mutate(n_trials = n()) %>%
+  ungroup()
+
+df_results <- filter(df_results, session <= 12)
+
+df_results_remediation <- filter(df_results, type == "remediation")
+df_results_test <- filter(df_results, type == "test")
+```
+
+```{r}
+df_results_remediation %>%
+  group_by(participant, session) %>%
+  summarise(correct_ratio = mean(correct_ratio)) %>%
+  ungroup() %>%
+  ggplot(aes(session, correct_ratio)) +
+    geom_line(aes(color=participant))
+```
+```{r}
+df_results_remediation %>%
+  group_by(session, participant) %>%
+  summarise(correct_ratio = mean(correct_ratio), .groups = "drop_last") %>%
+  summarise(correct_ratio = mean(correct_ratio)) %>%
+  ggplot(aes(session, correct_ratio)) +
+    geom_line() + scale_y_continuous(limits = c(0,1))
+```
+
+```{r}
+df_results_remediation %>%
+  group_by(session, participant) %>%
+  summarise(n_trials = max(n_trials)) %>%
+  ggplot(aes(session, n_trials)) +
+    geom_point() + geom_smooth(method = "lm")
+```
+
+```{r}
+df_results_remediation %>%
+  group_by(session, participant) %>%
+  summarise(n_trials = max(n_trials), .groups = "drop_last") %>%
+  summarise(mean_trial = mean(n_trials)) %>%
+  ggplot(aes(session, mean_trial)) +
+    geom_line() + scale_y_continuous(limits = c(2,11))
+```
+
+```{r}
+df_results_remediation %>%
+  group_by(session, n_items) %>%
+  summarise(results_time = mean(results_time)) %>%
+  ggplot(aes(session, results_time)) +
+  geom_line() + facet_wrap(~n_items)
+```
+
+```{r}
+df_results_remediation %>%
+  filter(results_time < 400) %>%
+  ggplot(aes(session, results_time)) +
+    geom_point() + geom_smooth(method = "lm") + 
+  facet_wrap(~n_items)
+```
+
+```{r}
+df_results_remediation %>%
+  ggplot(aes(session, results_trajectory)) +
+    geom_point() + geom_smooth(method = "lm") + 
+  facet_wrap(~n_items)
+```

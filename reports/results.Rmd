@@ -1,0 +1,17 @@
+---
+title: "results"
+author: "Lukáš 'hejtmy' Hejtmánek"
+date: "10/01/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::optlibrary(tidyverse)
+knitr::opts_chunk$set(echo = FALSE)
+
+df_results <- read.table("../run2-results-supermarket-sessions.csv", sep = ";",
+                           header = TRUE)s_chunk$set(echo = TRUE)
+
+df_ids <- read.table("../information.csv", sep = ";", header = TRUE)
+df_rbans <- read.table("../information.csv", sep = ";", header = TRUE)
+```

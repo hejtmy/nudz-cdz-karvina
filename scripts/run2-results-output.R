@@ -12,7 +12,6 @@ UNITY_DIR <- "E:/Google Drive/NUDZ/Projects/CDZ Karvina/VR-tasks/logy/2-pilot_VR
 participatns <- unique(df_sessions$id)
 
 exps <- load_participants_supermarket(UNITY_DIR, participatns)
-names(exps)
 df_results <- supermarket_results.participants(exps)
 
 df_results <- df_results %>% 
@@ -45,7 +44,6 @@ df_results %>%
   group_by(participant) %>%
   summarise(n = n(), sessions = length(unique(session)),
             timestamps = length(unique(timestamp)))
-
 
 df_results %>%
   group_by(session, participant) %>%
