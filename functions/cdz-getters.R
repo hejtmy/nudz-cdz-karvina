@@ -1,6 +1,3 @@
-GS_RUN2_SESSION <- "1rFm8QnjGw3BQuFfMvGiLUa5hMvg3-8iTP8h5DGMZLlc"
-GS_RUN2_DEMOGRAPHICS_RBANS <- "1qMdiLYY7EIbNvoRsE5knjBB24zXT7hgJNUCmwMX7IwY"
-
 get_sheet_ids <- function(preprocess = TRUE, overwrite = FALSE){
   df_ids <- googlesheets4::range_read(GS_RUN2_DEMOGRAPHICS_RBANS, sheet = "ID")
   if(!preprocess) return(df_ids)
@@ -13,7 +10,9 @@ get_sheet_ids <- function(preprocess = TRUE, overwrite = FALSE){
   
   return(df_ids)
 }
+
 get_sheet_demographics <- function(preprocess = TRUE, overwrite = FALSE){
+  GS_RUN2_DEMOGRAPHICS_RBANS <- "1qMdiLYY7EIbNvoRsE5knjBB24zXT7hgJNUCmwMX7IwY"
   df_demographics <- googlesheets4::range_read(GS_RUN2_DEMOGRAPHICS_RBANS, 
                                              sheet = "demografie", 
                                              col_types = "ccccccciiiccci")
@@ -41,7 +40,8 @@ get_sheet_rbans <- function(preprocess = TRUE, overwrite = FALSE){
 }
 
 get_sheet_sessions <- function(preprocess = TRUE, overwrite = FALSE){
-  df_sessions <- googlesheets4::range_read(GS_RUN2_SESSION, col_types = "ccicc")
+  GS_RUN2_SESSION <- "1rFm8QnjGw3BQuFfMvGiLUa5hMvg3-8iTP8h5DGMZLlc"
+  df_sessions <- googlesheets4::range_read(GS_RUN2_SESSION, col_types = "ccicci")
   if(!preprocess) returnb(df_sessions)
   colnames(df_sessions) <- tolower(colnames(df_sessions))
   return(df_sessions)
