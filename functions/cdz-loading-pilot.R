@@ -12,7 +12,7 @@ load_participants_supermarket <- function(data_dir, ids = c()){
     ids <- list.files(file.path(data_dir, "supermarket"),
                       full.names = FALSE, recursive = FALSE)
   }
-  result <- list() 
+  result <- list()
   for(id in ids){
     folder <- path_supermarket_participant(data_dir, id)
     if(!dir.exists(folder)) next
@@ -25,6 +25,7 @@ load_participants_supermarket <- function(data_dir, ids = c()){
 
 load_participant_supermarket <- function(data_dir, id){
   folder <- path_supermarket_participant(data_dir, id)
+  message("loading ", folder)
   exps <- load_supermarket_experiments(folder, language = "CZR")
   ## ThIS DOESN'T WORK FOR ALL FOR SOME REASON FFS
   # version <- exps[[1]]$data$experiment_info$Experiment$Settings$settings[17]

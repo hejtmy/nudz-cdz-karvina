@@ -41,6 +41,14 @@ df_rbans_long <- df_rbans_long %>%
 df_ids %>%
   count(is_ok, rbans_ok, logy_ok) %>%
   kable(caption = "Overview of the state of affairs")
+
+df_rbans_long %>%
+  group_by(session) %>%
+  summarise(length(unique(rbansid)))
+
+df_ids %>%
+  left_join(select(df_demographics, rbansid, first_training), by = "rbansid") %>%
+  count(is_ok, first_training)
 ```
 
 ```{r}
@@ -75,9 +83,9 @@ df_rbans %>%
 
 df_rbans %>%
   filter(!is.na(first_training)) %>%
-  ggplot(aes(session, iq_rec)) +
+  ggplot(aes(session, vybaveniseznamu)) +
     geom_line(aes(color=rbansid)) + geom_point() +
-    facet_wrap(~c(first_training, diagnosis))
+    facet_wrap( ~ first_training + diagnosis)
 
 df_rbans_baseline <- baseline_rbans(df_rbans)
 df_rbans_baseline %>%
@@ -86,11 +94,6 @@ df_rbans_baseline %>%
   ggplot(aes(subtest, value, fill = trenink)) +
     geom_boxplot() +
     facet_wrap(~first_training) + geom_hline(yintercept = 0)
-
-
-df_ids %>%
-  left_join(select(df_demographics, rbansid, first_training), by = "rbansid") %>%
-  count(is_ok, first_training)
 
 ```
 
