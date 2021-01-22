@@ -47,3 +47,14 @@ get_sheet_sessions <- function(preprocess = TRUE, overwrite = FALSE){
   df_sessions$use <- df_sessions$use == 1
   return(df_sessions)
 }
+
+get_sheet_questionnaire <- function(preprocess = TRUE){
+  GS_QUESTIONNAIRE <- "1oDGMtNYY_sGSQabzTfi3O18srZFcm-xxUWytqyryj0Y"
+  out <- googlesheets4::range_read(GS_QUESTIONNAIRE,
+                                                col_types = "iiccciiiiiiiicciiiiicc")
+  if(!preprocess) return(out)
+  out$used_memorization_technique <- recode(out$used_memorization_technique,
+                                            "Ano" = TRUE, "Ne" = FALSE, .default = NA)
+  
+  return(out)
+}
