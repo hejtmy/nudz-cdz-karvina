@@ -1,0 +1,37 @@
+---
+title: "Questionnaire "
+author: "Lukáš 'hejtmy' Hejtmánek"
+date: "22/01/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+knitr::opts_chunk$set(echo = TRUE)
+df_questionnaire <- read.table("../questionnaire.csv", sep = ";", header = TRUE)
+df_demographics <- read.table("../demographics.csv", sep = ";", header = TRUE)
+df_questionnaire <- df_questionnaire %>%
+  left_join(df_demographics, "rbansid" = "rbansid")
+```
+
+```{r}
+df_questionnaire_long <- df_questionnaire %>%
+  pivot_longer(cols = c(starts_with(c("vr", "paper")), -ends_with("feedback")),
+               names_to = "questionnaire_section", values_to = "score") %>%
+  separate(questionnaire_section, sep = "_", into = c("question_focus", "question_area"),
+           extra="merge")
+```
+
+```{r}
+df_questionnaire_long %>%
+  ggplot(aes(y = score, fill = question_focus)) + 
+    geom_boxplot() + 
+  facet_wrap(~question_area)
+```
+
+```{r}
+df_questionnaire_long %>%
+  group_by(question_focus, question_area) %>%
+  summarise(mean = mean(score)) %>%
+  pivot_wider(names_from = question_focus, values_from = mean)
+```
