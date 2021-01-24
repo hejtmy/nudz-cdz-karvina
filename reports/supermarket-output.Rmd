@@ -1,15 +1,17 @@
 ---
 title: "Supermarket ouptut"
 author: "Lukáš 'hejtmy' Hejtmánek"
-date: "10/01/2021"
+date: "`r Sys.Date()`"
 output: html_document
 ---
 
 ```{r setup, include=FALSE}
 library(tidyverse)
-knitr::opts_chunk$set(echo = FALSE)
+library(lmerTest)
+library(lme4)
+knitr::opts_chunk$set(echo = FALSE, warning=FALSE, message = FALSE)
 df_results <- read.table("../run2-results-supermarket-sessions.csv", sep = ";",
-                           header = TRUE)
+                         header = TRUE)
 
 df_demographics <- read.table("../demographics.csv", sep = ";", header = TRUE)
 df_ids <- read.table("../information.csv", header = TRUE, sep = ";")
@@ -24,6 +26,7 @@ df_results <- df_results %>%
   left_join(df_join, by = c("participant" = "vrid"))
 ```
 
+
 ```{r}
 df_results <- df_results %>%
   mutate(total_picked_items = n_correct_items + n_extra_items,
@@ -33,11 +36,44 @@ df_results <- df_results %>%
   mutate(n_trials = n()) %>%
   ungroup()
 
-df_results <- filter(df_results, session <= 12)
+# First session was supposedly weird, and only few people did more than 12
+df_results <- filter(df_results, session <= 12, session > 1)
 
 df_results_remediation <- filter(df_results, type == "remediation")
 df_results_test <- filter(df_results, type == "test")
 ```
+
+
+### Effect of session and number of items on trial time
+
+```{r}
+df_results_remediation %>%
+  filter(results_time < 400) %>%
+  ggplot(aes(session, results_time)) +
+    geom_jitter(height = 0.1, width = 0.2) +
+    scale_x_continuous(breaks = 2:12) +
+    geom_smooth(method = "lm") + 
+    facet_wrap(~n_items)
+```
+
+```{r}
+df_results_remediation %>%
+  group_by(session, n_items) %>%
+  summarise(results_time = mean(results_time)) %>%
+  ggplot(aes(session, y = results_time)) +
+    geom_line() +
+    facet_wrap(~n_items) +
+    scale_x_continuous(breaks = 2:12) +
+    labs(y = "average trial time")
+```
+
+
+```{r}
+lmer(results_time ~ session + n_items + (session | participant),
+  df_results_remediation) %>%
+  summary()
+```
+### Effect of session and number of items on correct ratio
 
 ```{r}
 df_results_remediation %>%
@@ -47,6 +83,8 @@ df_results_remediation %>%
   ggplot(aes(session, correct_ratio)) +
     geom_line(aes(color=participant))
 ```
+
+
 ```{r}
 df_results_remediation %>%
   group_by(session, participant) %>%
@@ -57,41 +95,70 @@ df_results_remediation %>%
 ```
 
 ```{r}
-df_results_remediation %>%
-  group_by(session, participant) %>%
-  summarise(n_trials = max(n_trials)) %>%
-  ggplot(aes(session, n_trials)) +
-    geom_point() + geom_smooth(method = "lm")
+lmer(correct_ratio ~ session + n_items + (session | participant),
+  df_results_remediation) %>%
+  summary()
 ```
 
-```{r}
-df_results_remediation %>%
-  group_by(session, participant) %>%
-  summarise(n_trials = max(n_trials), .groups = "drop_last") %>%
-  summarise(mean_trial = mean(n_trials)) %>%
-  ggplot(aes(session, mean_trial)) +
-    geom_line() + scale_y_continuous(limits = c(2,11))
-```
+AS we could expect, the ratio stays the same. But participants generally achieve better times and higher difficulties, so that is not necessarily a problem.
 
-```{r}
-df_results_remediation %>%
-  group_by(session, n_items) %>%
-  summarise(results_time = mean(results_time)) %>%
-  ggplot(aes(session, results_time)) +
-  geom_line() + facet_wrap(~n_items)
-```
-
-```{r}
-df_results_remediation %>%
-  filter(results_time < 400) %>%
-  ggplot(aes(session, results_time)) +
-    geom_point() + geom_smooth(method = "lm") + 
-  facet_wrap(~n_items)
-```
+### Effect of session and number of items on trial trajectory
 
 ```{r}
 df_results_remediation %>%
   ggplot(aes(session, results_trajectory)) +
-    geom_point() + geom_smooth(method = "lm") + 
-  facet_wrap(~n_items)
+    geom_jitter(width = 0.1, height = 0.3) +
+    scale_y_continuous(limits = c(0,750)) +
+    geom_smooth(method = "lm") + 
+    facet_wrap(~n_items) +
+  labs(y = "trial trajectory")
+```
+
+```{r}
+lmer(results_trajectory ~ session + n_items + (session | participant),
+  df_results_remediation) %>%
+  summary()
+```
+
+
+### Effect of session on maximum achieved difficulty
+```{r}
+df_results_remediation %>%
+  group_by(session, participant) %>%
+  summarise(n_trials = max(n_trials), .groups="drop") %>%
+  ggplot(aes(session, y = n_trials, color = participant)) +
+    geom_point()+
+    geom_smooth(method = "lm", se = FALSE) + 
+    facet_wrap(~participant) +
+    guides(color = FALSE) +
+    scale_x_continuous(breaks = 2:12) +
+    labs(y = "Maximum achieved difficulty")
+```
+
+```{r}
+df_results_remediation %>%
+  group_by(session, participant) %>%
+  summarise(n_trials = max(n_trials)) %>%
+  ggplot(aes(session, n_trials)) +
+    geom_jitter(aes(color=participant), height = 0.1, width = 0.2) +
+    geom_smooth(method = "lm") +
+    scale_x_continuous(breaks = 2:12) +
+    scale_y_continuous(breaks = 1:15) +
+    labs(y="maximum achieved difficulty") + guides(color=FALSE)
+```
+
+```{r}
+df_results_remediation %>%
+  group_by(session, participant) %>%
+  summarize(max_difficulty = max(n_items), .groups = "drop") %>%
+  lmer(max_difficulty ~ session  + (session||participant), data = .) %>%
+    VarCorr()
+```
+
+```{r}
+df_results_remediation %>%
+  group_by(session, participant) %>%
+  summarize(max_difficulty = max(n_items), .groups = "drop") %>%
+  lmer(max_difficulty ~ session  + (session | participant), data = .) %>%
+    summary()
 ```

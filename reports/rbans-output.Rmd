@@ -29,9 +29,11 @@ df_rbans <- get_sheet_rbans()
 
 ```{r preprocessing}
 df_rbans <- add_session_to_rbans(df_rbans, df_demographics)
+
 df_rbans_long <- df_rbans %>%
     pivot_longer(-c(rbansid, trenink, diagnosis, first_training, session),
                  names_to = "subtest", values_to = "score")
+
 df_rbans_long <- df_rbans_long %>%
   group_by(trenink, first_training, subtest) %>%
   summarise(group_avg = mean(score, na.rm = TRUE)) %>%
@@ -62,6 +64,7 @@ df_rbans_long %>%
 
 ```{r}
 library(lme4)
+
 df_rbans %>%
   lmer(iq_celek ~ session + first_training + (1|rbansid), data = .) %>%
   summary()
