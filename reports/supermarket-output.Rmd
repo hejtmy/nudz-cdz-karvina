@@ -125,10 +125,10 @@ lmer(results_trajectory ~ session + n_items + (session | participant),
 ```{r}
 df_results_remediation %>%
   group_by(session, participant) %>%
-  summarise(n_trials = max(n_trials), .groups="drop") %>%
-  ggplot(aes(session, y = n_trials, color = participant)) +
+  summarise(max_difficulty = max(n_items), .groups="drop") %>%
+  ggplot(aes(session, y = max_difficulty, color = participant)) +
     geom_point()+
-    geom_smooth(method = "lm", se = FALSE) + 
+    geom_smooth(method = "lm") + 
     facet_wrap(~participant) +
     guides(color = FALSE) +
     scale_x_continuous(breaks = 2:12) +
@@ -138,8 +138,8 @@ df_results_remediation %>%
 ```{r}
 df_results_remediation %>%
   group_by(session, participant) %>%
-  summarise(n_trials = max(n_trials)) %>%
-  ggplot(aes(session, n_trials)) +
+  summarise(max_difficulty = max(n_items)) %>%
+  ggplot(aes(session, max_difficulty)) +
     geom_jitter(aes(color=participant), height = 0.1, width = 0.2) +
     geom_smooth(method = "lm") +
     scale_x_continuous(breaks = 2:12) +
@@ -151,7 +151,7 @@ df_results_remediation %>%
 df_results_remediation %>%
   group_by(session, participant) %>%
   summarize(max_difficulty = max(n_items), .groups = "drop") %>%
-  lmer(max_difficulty ~ session  + (session||participant), data = .) %>%
+  lmer(max_difficulty ~ session  + (session|participant), data = .) %>%
     VarCorr()
 ```
 
