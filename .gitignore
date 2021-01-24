@@ -3,6 +3,7 @@ playground*
 
 # Outputs
 *.csv
+*.html
 
 # Rfiles
 .Rproj.user
