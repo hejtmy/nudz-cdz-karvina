@@ -1,17 +1,251 @@
 ---
-title: "results"
+title: "Results"
 author: "Lukáš 'hejtmy' Hejtmánek"
 date: "10/01/2021"
 output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::optlibrary(tidyverse)
-knitr::opts_chunk$set(echo = FALSE)
-
+library(tidyverse)
+library(lmerTest)
+library(lme4)
+source("../functions/cdz-preprocess.R")
+knitr::opts_chunk$set(echo = FALSE, warning= FALSE)
 df_results <- read.table("../run2-results-supermarket-sessions.csv", sep = ";",
-                           header = TRUE)s_chunk$set(echo = TRUE)
+                         header = TRUE)
 
-df_ids <- read.table("../information.csv", sep = ";", header = TRUE)
-df_rbans <- read.table("../information.csv", sep = ";", header = TRUE)
+df_demographics <- read.table("../demographics.csv", sep = ";", header = TRUE)
+df_ids <- read.table("../information.csv", header = TRUE, sep = ";")
+
+df_sessions <- read.table("../sessions.csv", header = TRUE, sep = ";")
+
+# Combine with demographics
+df_join <- df_demographics %>%
+  left_join(df_ids, by = "rbansid") %>%
+  select(rbansid, vrid) %>% 
+  filter(!is.na(rbansid) & !is.na(vrid))
+
+df_results <- df_results %>%
+  left_join(df_join, by = c("participant" = "vrid"))
+
+df_results <- df_results %>%
+  mutate(total_picked_items = n_correct_items + n_extra_items,
+         correct_ratio = n_correct_items/n_items,
+         extra_ratio = n_extra_items/n_items) %>%
+  group_by(participant, session) %>%
+  mutate(n_trials = n()) %>%
+  ungroup()
+
+# First session was supposedly weird, and only few people did more than 12
+df_results <- filter(df_results, session <= 12, session > 1)
+
+df_results_remediation <- filter(df_results, type == "remediation")
+df_results_test <- filter(df_results, type == "test")
+
+## RBANS ----
+df_rbans <- read.table("../rbans.csv", sep=";", header = TRUE) %>%
+  add_session_to_rbans(df_demographics) %>%
+  add_summaries_to_rbans()
+
+df_rbans_long <- df_rbans %>%
+    pivot_longer(-c(rbansid, trenink, diagnosis, first_training, session),
+                 names_to = "subtest", values_to = "score") %>%
+  group_by(session, subtest) %>%
+  mutate(z_score = scale(score)[,1])
+
+df_rbans_long <- df_rbans_long %>%
+  group_by(trenink, first_training, subtest) %>%
+  summarise(group_avg = mean(score, na.rm = TRUE),
+            group_z_avg = mean(z_score, na.rm = TRUE),
+            .groups="drop") %>%
+  right_join(df_rbans_long, by = c("trenink", "first_training", "subtest"))
 ```
+
+## Rbans
+
+```{r}
+df_rbans_long %>%
+  filter(grepl("dim_", subtest), !is.na(session)) %>%
+  ggplot(aes(subtest, z_score, fill = factor(session))) +
+    geom_boxplot() +
+    facet_wrap(~first_training) +
+    theme(axis.text.x =  element_text(angle = 45, vjust = 1, hjust = 1)) +
+    labs(y = "Scaled score", title = "Scaled score evolution based on session split by first training")
+
+df_rbans_long %>%
+  filter(grepl("dim_", subtest), !is.na(session)) %>%
+  ggplot(aes(subtest, z_score, fill = trenink)) +
+    geom_boxplot() +
+    facet_wrap(~session) +
+    theme(axis.text.x =  element_text(angle = 45, vjust = 1, hjust = 1)) +
+    labs(y = "Scaled score", title = "Scaled score evolution based on session split by session")
+```
+
+```{r}
+baseline_rbans(df_rbans) %>%
+    pivot_longer(-c(rbansid, trenink, diagnosis, first_training, session),
+                 names_to = "subtest", values_to = "score") %>%
+  filter(grepl("dim_", subtest), !is.na(session)) %>%
+  ggplot(aes(subtest, score, fill = factor(session))) +
+    geom_boxplot() +
+    geom_hline(yintercept = 0) +
+    facet_wrap(~first_training) +
+    theme(axis.text.x =  element_text(angle = 45, vjust = 1, hjust = 1)) +
+    labs(y = "Baseline change", title = "Change in score vs the baseline split by the first training")
+
+
+baseline_rbans(df_rbans) %>%
+    pivot_longer(-c(rbansid, trenink, diagnosis, first_training, session),
+                 names_to = "subtest", values_to = "score") %>%
+  filter(grepl("dim_", subtest), !is.na(session)) %>%
+  ggplot(aes(subtest, score, fill = trenink)) +
+    geom_boxplot() +
+    geom_hline(yintercept = 0) +
+    facet_wrap(~session) +
+    theme(axis.text.x =  element_text(angle = 45, vjust = 1, hjust = 1)) +
+    labs(y = "Baseline change", title = "Change in score vs the baseline split by the session")
+
+```
+
+## Supermarket improvement during the 6 weeks
+. VR - bylo by možné vzít průměr (1. sezení bylo víc zácvik a někteří dělali test, takže to ukazuje blbosti) 2. a 3 sezení a posledního a předposledního sezení a porovnat je? Myslím si, že tam je u většiny lidí posun, ale třeba o půl nebo jeden bod. Prostě je fakt minimální a potřebují pravděpodobně mnohem intenzivní trénink - liší se ti, co mají méně než 10 sezení od těch, kterí mají 10 a více? Žádné velké predikce bychom se nedělali - nejsou na to data a žádný jasný vztah tam nevidím teda. Očividně blbý efekt vidím u těch, co mega kolísají, Mohli bychom se tak i vyhnout načítání dat z domu (pokud je to prostě fakt těžký), jelikož ta úloha je mnohem složitější a připadá mi težké oddělit ty chyby mezi sebou a budou se míchat dohromady 
+
+```{r}
+df_remediation_improvement <- df_results_remediation %>%
+  group_by(participant, session) %>%
+  summarise(max_diff  = max(n_items),
+            avg_ratio = mean(correct_ratio), .groups="drop_last") %>%
+  arrange(participant, session) %>%
+  summarise(ratio_improvement = mean(tail(avg_ratio, 2)) - mean(head(avg_ratio, 2)),
+            diff_improvement = mean(tail(max_diff, 2)) - mean(head(max_diff, 2)),
+            starting_diff = mean(head(max_diff, 2)), .groups = "drop")
+```
+
+Improvement in maximum achieved difficulty 
+```{r}
+df_remediation_improvement %>%
+  ggplot(aes(diff_improvement)) +
+  geom_histogram(binwidth = 1) +
+  geom_vline(xintercept = 0)
+```
+
+```{r}
+tab_improved <- table(sign(df_remediation_improvement$diff_improvement))
+as.data.frame(tab_improved) %>%
+  mutate(Var1 = c("worse performance", "same performance", "better performance"))
+```
+
+People are not spread equaly in the groups as measured by the chi.square
+```{r}
+chisq.test(tab_improved)
+```
+
+BUT! there is no significant difference in the number of people who got better (`r tab_improved[3]`) vs people who either performed worse  or did not improve (`r sum(tab_improved[1:2])`)
+```{r}
+chisq.test(table(df_remediation_improvement$diff_improvement > 0))
+```
+
+
+## adherence and feasibility 
+- počet absolvovaných VR sezení a jejich délka "jak dlouho u toho vydrželi" a výsledky dotazníků - jak je to bavilo, jestli by si to chtěli zopakovat a jestli jim to připadalo užitečné
+
+
+```{r}
+df_sessions %>%
+  group_by(id) %>%
+  summarise(n_sessions = max(session)) %>%
+  group_by(n_sessions) %>%
+  summarise(n = n())
+```
+
+There is no variability in the number of VR sessions - 17/20 people did 12 or 13 sessions, so there is no point in searching for the effect of number of sessions.
+
+```{r}
+
+```
+
+## Mixed model random effect predicting the rbans performance
+
+```{r}
+lmer_difficulty_session <- df_results_remediation %>%
+  group_by(session, participant) %>%
+  summarize(max_difficulty = max(n_items), .groups = "drop") %>%
+  lmer(max_difficulty ~ session  + (session | participant), data = .)
+```
+
+Modelling the supermarket with mixed effect modelling gives us base trial difficulty of `r fixef(lmer_difficulty_session)[1]` and improvement of `r fixef(lmer_difficulty_session)[2 q]` per session. But it also models individual improvement and base performance. That is in the table below. Some participants have overall better base performance and some simply improve better or worse from this baseline. We can use these metrics to predict the RBANS performance change.
+
+```{r}
+ranef(lmer_difficulty_session)$participant %>%
+  arrange(session) %>%
+  knitr::kable(col.names = c("Base performance change", "Improvement change"))
+```
+
+```{r}
+random_coeffs <- df_results_remediation %>%
+  group_by(session, rbansid) %>%
+  summarize(max_difficulty = max(n_items), .groups = "drop") %>%
+  lmer(max_difficulty ~ session  + (session | rbansid), data = .) %>%
+  ranef() %>% .$rbansid
+
+colnames(random_coeffs) <- c("intercept", "session_slope")
+random_coeffs$rbansid <- rownames(random_coeffs)
+
+df_rbans_randcoef <- df_rbans_long %>%
+  filter(trenink == "VR", grepl("dim_", subtest), !is.na(score)) %>%
+  left_join(random_coeffs, by = "rbansid") %>%
+  select(-starts_with("group"), -diagnosis)
+
+df_rbans_randcoef_wide_score <- df_rbans_randcoef %>%
+  select(-z_score) %>%
+  pivot_wider(names_from = "subtest", values_from = "score") %>%
+  filter(!is.na(intercept))
+
+df_rbans_randcoef_wide_zscore <- df_rbans_randcoef %>%
+  select(-score) %>%
+  pivot_wider(names_from = "subtest", values_from = "z_score") %>%
+  filter(!is.na(intercept))
+
+
+df_rbans_randcoef_baseline_wide <- baseline_rbans(df_rbans) %>%
+    pivot_longer(-c(rbansid, trenink, diagnosis, first_training, session),
+                 names_to = "subtest", values_to = "score") %>%
+  filter(trenink == "VR", grepl("dim_", subtest), !is.na(score)) %>%
+  left_join(random_coeffs, by = "rbansid") %>%
+  select(-starts_with("group"), -diagnosis) %>%
+  filter(!is.na(intercept)) %>%
+  pivot_wider(names_from = "subtest", values_from = "score")
+
+```
+
+These results are kinda challenging to explain and I am not sure if they are correct :D But the thing is ... when modelling the supermarket performance as an effect of session, we get those individual "intercepts" (basically default skill) and "session_slope" (rate of change - some people learn faster than others) - viz paragraph above. I then use these individual estimates to predict rbans score! Therefore predicting RBANS standardized scores by the "default" skill in supermarket and the "rate of improvement in supermarket" and also the session(arguably participants doing the VR in 2nd iteration should be generally better than those doing it in the 1st). Below are the results for individual rbans scales (those are scaled per session (B has different scaling than C))
+
+```{r}
+glm(dim_dlouhodobapamet ~ intercept + session_slope + factor(session), data = df_rbans_randcoef_wide_zscore) %>%
+  summary()
+
+glm(dim_kratkodobapamet  ~ intercept + session_slope + factor(session), data = df_rbans_randcoef_wide_zscore) %>%
+  summary()
+
+glm(dim_rec ~ intercept + session_slope + factor(session), data = df_rbans_randcoef_wide_zscore) %>%
+  summary()
+
+glm(dim_pozornost ~ intercept + session_slope + factor(session), data = df_rbans_randcoef_wide_zscore) %>%
+  summary()
+
+glm(dim_vizuoprostor   ~ intercept + session_slope + factor(session), data = df_rbans_randcoef_wide_zscore) %>%
+  summary()
+
+```
+
+What we can see is that the base individual performance (and although it SOUNDS like BASELINE, it really is not for some participants, especially if intercept is correlated with slope - which in our case is at r=0.31) predicts RBANS score for short and long term memory!!! The better the participants do in supermarket, the better they do in the following RBANS.
+
+WARNING WARNING WARNING!!!!
+I am absolutely NOT SURE I can do it this way :D it just occured to me and it beautifully corresponds to what we might expect happening, so there you go. But I'll ponder of the matter of affairs a bit longer. Also, it does NOT take into consideration the rbans baseline! E.g. there is certainly some cross correlation - people who do well in RBANS do well in supermarket as well. Personally I believe that is the case, rather than supermarket actually changing something. I tried to run the model on baseline changes, but it is generally non significant for those valid scales and becomes significant for the OTHER scales. BUT the issue is with the generally incomparability of the RBANS A-B-C versions, and therefore we dunno if the A-C decrease of 2 points in long term memory is actually INCREASE in performance, as C is so much more challenging. That would require complete rescaling of RBANS and we DO NOT have enough peeps to do so.
+
+
+## dodatek - mapování strategií 
+
+- dle dotazníku použilo ve VR jen 5 osob z 25 nějakou konkrétní strategii - proto by mohl mít význam strategy-base approach. a frekvence a intenzita tréninku se nám asi tolik neukazuje, když nevidíme zlepšení ani po 24 sezení? ale možná by mohla mít význam vyšší frekvence
+
+Tomu asi nerozumím :()
