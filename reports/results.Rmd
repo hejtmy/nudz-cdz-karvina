@@ -125,8 +125,8 @@ Improvement in maximum achieved difficulty
 ```{r}
 df_remediation_improvement %>%
   ggplot(aes(diff_improvement)) +
-  geom_histogram(binwidth = 1) +
-  geom_vline(xintercept = 0)
+    geom_histogram(binwidth = 1) +
+    geom_vline(xintercept = 0)
 ```
 
 ```{r}
@@ -149,7 +149,6 @@ chisq.test(table(df_remediation_improvement$diff_improvement > 0))
 ## adherence and feasibility 
 - počet absolvovaných VR sezení a jejich délka "jak dlouho u toho vydrželi" a výsledky dotazníků - jak je to bavilo, jestli by si to chtěli zopakovat a jestli jim to připadalo užitečné
 
-
 ```{r}
 df_sessions %>%
   group_by(id) %>%
@@ -164,7 +163,27 @@ There is no variability in the number of VR sessions - 17/20 people did 12 or 13
 
 ```
 
-## Mixed model random effect predicting the rbans performance
+## Mixed model RBANS
+```{r}
+df_rbans_conditions <- filter(df_rbans, session != 1)
+summary(manova(as.matrix(select(df_rbans_conditions, starts_with("dim_"))) ~ session + trenink, df_rbans_conditions))
+```
+
+Predicting IQ celek
+
+```{r}
+lmer_iq_celek <- lmer(iq_celek ~ trenink + factor(session) + (1|rbansid), data = df_rbans_conditions)
+summary(lmer_iq_celek)
+```
+```{r}
+summary(lmer(dim_kratkodobapamet ~ trenink + factor(session) + (1|rbansid), data = df_rbans_conditions))
+summary(lmer(dim_dlouhodobapamet ~ trenink + factor(session) + (1|rbansid), data = df_rbans_conditions))
+summary(lmer(dim_pozornost ~ trenink + factor(session) + (1|rbansid), data = df_rbans_conditions))
+summary(lmer(dim_rec ~ trenink + factor(session) + (1|rbansid), data = df_rbans_conditions))
+summary(lmer(dim_vizuoprostor ~ trenink + factor(session) + (1|rbansid), data = df_rbans_conditions))
+```
+
+## Mixed model random effect predicting the rbans performance with supermarket performance
 
 ```{r}
 lmer_difficulty_session <- df_results_remediation %>%
@@ -235,17 +254,9 @@ glm(dim_pozornost ~ intercept + session_slope + factor(session), data = df_rbans
 
 glm(dim_vizuoprostor   ~ intercept + session_slope + factor(session), data = df_rbans_randcoef_wide_zscore) %>%
   summary()
-
 ```
 
 What we can see is that the base individual performance (and although it SOUNDS like BASELINE, it really is not for some participants, especially if intercept is correlated with slope - which in our case is at r=0.31) predicts RBANS score for short and long term memory!!! The better the participants do in supermarket, the better they do in the following RBANS.
 
 WARNING WARNING WARNING!!!!
 I am absolutely NOT SURE I can do it this way :D it just occured to me and it beautifully corresponds to what we might expect happening, so there you go. But I'll ponder of the matter of affairs a bit longer. Also, it does NOT take into consideration the rbans baseline! E.g. there is certainly some cross correlation - people who do well in RBANS do well in supermarket as well. Personally I believe that is the case, rather than supermarket actually changing something. I tried to run the model on baseline changes, but it is generally non significant for those valid scales and becomes significant for the OTHER scales. BUT the issue is with the generally incomparability of the RBANS A-B-C versions, and therefore we dunno if the A-C decrease of 2 points in long term memory is actually INCREASE in performance, as C is so much more challenging. That would require complete rescaling of RBANS and we DO NOT have enough peeps to do so.
-
-
-## dodatek - mapování strategií 
-
-- dle dotazníku použilo ve VR jen 5 osob z 25 nějakou konkrétní strategii - proto by mohl mít význam strategy-base approach. a frekvence a intenzita tréninku se nám asi tolik neukazuje, když nevidíme zlepšení ani po 24 sezení? ale možná by mohla mít význam vyšší frekvence
-
-Tomu asi nerozumím :()

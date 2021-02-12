@@ -26,7 +26,6 @@ df_results <- df_results %>%
   left_join(df_join, by = c("participant" = "vrid"))
 ```
 
-
 ```{r}
 df_results <- df_results %>%
   mutate(total_picked_items = n_correct_items + n_extra_items,
@@ -91,7 +90,21 @@ df_results_remediation %>%
   summarise(correct_ratio = mean(correct_ratio), .groups = "drop_last") %>%
   summarise(correct_ratio = mean(correct_ratio)) %>%
   ggplot(aes(session, correct_ratio)) +
-    geom_line() + scale_y_continuous(limits = c(0,1))
+    geom_line() + scale_y_continuous(limits = c(0, 1))
+```
+
+
+```{r}
+df_results_remediation %>%
+  ggplot(aes(session, correct_ratio)) +
+  geom_point() + geom_smooth(method = "lm") +
+  facet_wrap(~n_items)
+
+df_results_remediation %>%
+  filter(n_items > 6) %>%
+  ggplot(aes(session, correct_ratio, color = factor(n_items))) +
+  geom_jitter(width = 0.25) +
+  geom_smooth(aes(color = "all"), method = "lm")
 ```
 
 ```{r}
@@ -127,8 +140,8 @@ df_results_remediation %>%
   group_by(session, participant) %>%
   summarise(max_difficulty = max(n_items), .groups="drop") %>%
   ggplot(aes(session, y = max_difficulty, color = participant)) +
-    geom_point()+
-    geom_smooth(method = "lm") + 
+    geom_point() +
+    geom_smooth(method = "lm") +
     facet_wrap(~participant) +
     guides(color = FALSE) +
     scale_x_continuous(breaks = 2:12) +
