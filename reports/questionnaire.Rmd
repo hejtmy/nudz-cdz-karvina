@@ -7,11 +7,13 @@ output: html_document
 
 ```{r setup, include=FALSE}
 library(tidyverse)
-knitr::opts_chunk$set(echo = TRUE)
-df_questionnaire <- read.table("../questionnaire.csv", sep = ";", header = TRUE)
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+df_questionnaire <- read.table("../questionnaire.csv", sep = ";", header = TRUE) %>%
+  mutate_at(vars(starts_with(c("vr", "paper", "supermarket"))), function(x){ifelse(x == 6, NA, x)})
 df_demographics <- read.table("../demographics.csv", sep = ";", header = TRUE)
+
 df_questionnaire <- df_questionnaire %>%
-  left_join(df_demographics, "rbansid" = "rbansid")
+  left_join(df_demographics, c("rbansid" = "rbansid"))
 ```
 
 ```{r}
@@ -26,12 +28,20 @@ df_questionnaire_long <- df_questionnaire %>%
 df_questionnaire_long %>%
   ggplot(aes(y = score, fill = question_focus)) + 
     geom_boxplot() + 
-  facet_wrap(~question_area)
+    facet_wrap(~question_area) +
+    theme(legend.position="bottom")
 ```
 
 ```{r}
-df_questionnaire_long %>%
-  group_by(question_focus, question_area) %>%
-  summarise(mean = mean(score)) %>%
+df_temp <- df_questionnaire_long %>%
+  group_by(question_area, question_focus) %>%
+  summarise(mean = mean(score, na.rm = TRUE)) %>%
   pivot_wider(names_from = question_focus, values_from = mean)
+
+df_questionnaire_long %>%
+  group_by(question_area) %>%
+  summarise(t.test_p = t.test(score~question_focus)$p.value) %>%
+  right_join(df_temp, by = "question_area") %>%
+  knitr::kable(digits = 3)
 ```
+
