@@ -159,10 +159,6 @@ df_sessions %>%
 
 There is no variability in the number of VR sessions - 17/20 people did 12 or 13 sessions, so there is no point in searching for the effect of number of sessions.
 
-```{r}
-
-```
-
 ## Mixed model RBANS
 ```{r}
 df_rbans_conditions <- filter(df_rbans, session != 1)
@@ -192,7 +188,7 @@ lmer_difficulty_session <- df_results_remediation %>%
   lmer(max_difficulty ~ session  + (session | participant), data = .)
 ```
 
-Modelling the supermarket with mixed effect modelling gives us base trial difficulty of `r fixef(lmer_difficulty_session)[1]` and improvement of `r fixef(lmer_difficulty_session)[2 q]` per session. But it also models individual improvement and base performance. That is in the table below. Some participants have overall better base performance and some simply improve better or worse from this baseline. We can use these metrics to predict the RBANS performance change.
+Modelling the supermarket with mixed effect modelling gives us base trial difficulty of `r fixef(lmer_difficulty_session)[1]` and improvement of `r fixef(lmer_difficulty_session)[2]` per session. But it also models individual improvement and base performance. That is in the table below. Some participants have overall better base performance and some simply improve better or worse from this baseline. We can use these metrics to predict the RBANS performance change.
 
 ```{r}
 ranef(lmer_difficulty_session)$participant %>%

@@ -107,7 +107,7 @@ df_results_remediation %>%
 ## Final sample
 
 The final RBANS counts look like this
-```{r rbansfinal}
+```{r rbansfinal, message=FALSE}
 df_rbans %>%
   group_by(rbansid) %>%
   summarise(n_sessions = sum(!is.na(testuceni)), .groups="drop") %>%
@@ -123,6 +123,12 @@ df_rbans %>%
   group_by(session) %>%
   summarise(n_sessions = sum(!is.na(testuceni))) %>%
   knitr::kable(col.names =  c("Session", "Number of subjects"))
+
+df_rbans %>%
+  filter(session == 1) %>%
+  group_by(first_training) %>%
+  summarise(n_sessions = sum(!is.na(testuceni))) %>%
+  knitr::kable(col.names =  c("First Training", "Number of subjects"))
 ```
 
 Combining the rbans with supermarket to get the "cross" results - only people who have both the supermarket data and the rbans data to acompany it
