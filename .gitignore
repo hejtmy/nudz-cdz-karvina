@@ -5,6 +5,8 @@ playground*
 *.csv
 *.html
 
+!docs/*.html
+
 # Rfiles
 .Rproj.user
 .Rhistory
