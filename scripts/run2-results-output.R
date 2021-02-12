@@ -37,8 +37,6 @@ df_results %>%
   select(participant, timestamp) %>%
   distinct()
 
-View(df_results)
-
 df_results %>%
   filter(!is.na(session)) %>%
   group_by(participant) %>%

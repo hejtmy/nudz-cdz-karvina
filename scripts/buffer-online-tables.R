@@ -1,3 +1,4 @@
+library(tidyverse)
 source("functions/cdz-getters.R")
 df_demographics <- get_sheet_demographics()
 write.table(df_demographics, "demographics.csv", sep = ";", row.names = FALSE)
