@@ -1,0 +1,146 @@
+---
+title: "manuscript"
+author: "Lukáš 'hejtmy' Hejtmánek"
+date: "15/02/2021"
+output: html_document
+---
+```{r setup, echo = FALSE}
+library(tidyverse)
+library(lmerTest)
+library(lme4)
+library(helprs)
+library(papaja)
+source("../functions/cdz-preprocess.R")
+knitr::opts_chunk$set(echo = FALSE, warning= FALSE)
+df_results <- read.table("../run2-results-supermarket-sessions.csv", sep = ";",
+                         header = TRUE)
+
+df_demographics <- read.table("../demographics.csv", sep = ";", header = TRUE)
+df_ids <- read.table("../information.csv", header = TRUE, sep = ";")
+
+df_sessions <- read.table("../sessions.csv", header = TRUE, sep = ";")
+
+
+# Combine with demographics
+df_results <- df_demographics %>%
+  left_join(df_ids, by = "rbansid") %>%
+  select(rbansid, vrid) %>% 
+  filter(!is.na(rbansid) & !is.na(vrid)) %>%
+  right_join(df_results, by = c("vrid" = "participant")) %>%
+  mutate(participant = vrid) %>%
+  select(-vrid)
+
+df_results <- df_results %>%
+  mutate(total_picked_items = n_correct_items + n_extra_items,
+         correct_ratio = n_correct_items/n_items,
+         extra_ratio = n_extra_items/n_items) %>%
+  group_by(participant, session) %>%
+  mutate(n_trials = n(), 
+         max_difficulty = max(n_items)) %>%
+  ungroup()
+
+# First session was supposedly weird, and only few people did more than 12
+df_results <- filter(df_results, session <= 12, session > 1)
+
+df_results_remediation <- filter(df_results, type == "remediation")
+df_results_test <- filter(df_results, type == "test")
+
+## RBANS ----
+df_rbans <- read.table("../rbans.csv", sep = ";", header = TRUE) %>%
+  add_session_to_rbans(df_demographics) %>%
+  add_summaries_to_rbans()
+
+df_rbans_long <- df_rbans %>%
+    pivot_longer(-c(rbansid, trenink, diagnosis, first_training, session),
+                 names_to = "subtest", values_to = "score") %>%
+  group_by(session, subtest) %>%
+  mutate(z_score = scale(score)[,1])
+
+df_rbans_long <- df_rbans_long %>%
+  group_by(trenink, first_training, subtest) %>%
+  summarise(group_avg = mean(score, na.rm = TRUE),
+            group_z_avg = mean(z_score, na.rm = TRUE),
+            .groups="drop") %>%
+  right_join(df_rbans_long, by = c("trenink", "first_training", "subtest"))
+
+## Questionnaire ----
+df_questionnaire <- read.table("../questionnaire.csv", sep = ";", header = TRUE) %>%
+  mutate_at(vars(starts_with(c("vr", "paper", "supermarket"))), function(x){ifelse(x == 6, NA, x)})
+
+df_questionnaire <- df_questionnaire %>%
+  left_join(df_demographics, c("rbansid" = "rbansid"))
+
+```
+
+## Demographics
+```{r}
+good_participants <- df_rbans %>% 
+  group_by(rbansid) %>%
+  filter(!is.na(testpameti)) %>%
+  summarise(n = n()) %>%
+  filter(n >= 2) %>%
+  pull(rbansid)
+
+df_demographics_good <- df_demographics %>%
+  filter(rbansid %in% good_participants)
+table(df_demographics_good$gender)['male']
+mean_and_sd_report(df_demographics[df_demographics$gender == "male", "age"])
+```
+
+A total of `r nrow(df_demographics)` participants were recruited. Only those participants who completed at least one intervention session were included in the subsequent analyses: `r nrow(df_demographics_good)` in total, `r table(df_demographics_good$gender)['male']` male (`r mean_and_sd_report(df_demographics[df_demographics$gender == "male", "age"])`), female `r table(df_demographics_good$gender)['female']` (`r mean_and_sd_report(df_demographics[df_demographics$gender == "female", "age"])`). 
+
+Demografická tabulka s průměry délky onemocnění, věkem, vzděláním atp - případně vytvořím sama, můžeš třeba jen vysypat ta data (a nebo to taky udělám)
+```{r}
+df_demographics_good %>%
+  select(age, ilness_duration_years) %>%
+  pivot_longer(everything()) %>%
+  group_by(name) %>%
+  summarise(mean = mean(value, na.rm = TRUE),
+            sd = mean(value, na.rm = TRUE)) %>%
+  knitr::kable(digits = 3)
+
+df_demographics_good %>%
+  count(diagnosis) %>%
+  knitr::kable()
+
+df_demographics_good %>%
+  count(education) %>%
+  knitr::kable
+```
+
+Adherence rate – potřebujeme info o tom, kolik lidí bylo zahrnuto do studie (splnili kritéria), kolik lidí odpadlo v průběhu VR  nebo TP, kolik lidí odmítlo začít VR/TP - já bych doplnila důvody odpadu
+
+## Questionnaire
+
+```{r}
+df_temp <- df_questionnaire_long %>%
+  group_by(question_area, question_focus) %>%
+  summarise(mean = mean_and_sd_report(score)) %>%
+  pivot_wider(names_from = question_focus, values_from = mean)
+
+df_questionnaire_long <- df_questionnaire %>%
+  pivot_longer(cols = c(starts_with(c("vr", "paper")), -ends_with("feedback")),
+               names_to = "questionnaire_section", values_to = "score") %>%
+  separate(questionnaire_section, sep = "_", into = c("question_focus", "question_area"),
+           extra="merge")
+
+df_questionnaire_long %>%
+  group_by(question_area) %>%
+  summarise(t.test = apa_print(t.test(score~question_focus))$statistic) %>%
+  right_join(df_temp, by = "question_area") %>%
+  select(question_area, paper, vr, t.test)
+  knitr::kable(digits = 3, caption = "")
+  
+t_questionnaire_repeat <- t.test(df_questionnaire$vr_would_repeat, df_questionnaire$paper_would_repeat)
+```
+
+The questionnaire aimed at assesing patients subjective perception of the intervention in terms of difficulty, fun or improvement indicate no significant difference between the paper tests and the VR tests in either of the five categories (see table XXX). Although the patients seem to give a slight edge to the paper tests in terms of repeatability `r apa_print(t_questionnaire_repeat)$statistic`. This can be due to arguably (XXXX higher demands of the VR tests or lack of social interaction ??) and is addressed in the discussion.
+
+
+## Supermarket
+
+Supermarket – reportovat zlepšení v difficulty achieved  (celkový graf) a v čase trialů - linear mixed models (možná se podívat na ten součet N correct za session + correct ration pro úroveň 6, 7, 8)
+
+RBANS – dle pokynů Ivety a dle počtů lidí se mrknout na vliv pořadí a verze RBANS a tréninku
+
+RBANS – dodat prosím srovnání (i když je jasné, že je nesignifikantní), dodat tabulku s průměry před a po a SD a non-signifikance, graf změny (ten, co je asi nejvíc vypovídající, change vůči baseline?)
