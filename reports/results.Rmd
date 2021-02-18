@@ -84,27 +84,30 @@ df_rbans_long %>%
 ```{r}
 baseline_rbans(df_rbans) %>%
     pivot_longer(-c(rbansid, trenink, diagnosis, first_training, session),
-                 names_to = "subtest", values_to = "score") %>%
+                 names_to = "subtest",
+                 values_to = "score") %>%
   filter(grepl("dim_", subtest), !is.na(session)) %>%
   ggplot(aes(subtest, score, fill = factor(session))) +
     geom_boxplot() +
     geom_hline(yintercept = 0) +
     facet_wrap(~first_training) +
     theme(axis.text.x =  element_text(angle = 45, vjust = 1, hjust = 1)) +
-    labs(y = "Baseline change", title = "Change in score vs the baseline split by the first training")
+    labs(y = "Baseline change",
+         title = "Change in score vs the baseline split by the first training")
 
 
 baseline_rbans(df_rbans) %>%
     pivot_longer(-c(rbansid, trenink, diagnosis, first_training, session),
-                 names_to = "subtest", values_to = "score") %>%
+                 names_to = "subtest",
+                 values_to = "score") %>%
   filter(grepl("dim_", subtest), !is.na(session)) %>%
   ggplot(aes(subtest, score, fill = trenink)) +
     geom_boxplot() +
     geom_hline(yintercept = 0) +
     facet_wrap(~session) +
-    theme(axis.text.x =  element_text(angle = 45, vjust = 1, hjust = 1)) +
-    labs(y = "Baseline change", title = "Change in score vs the baseline split by the session")
-
+    theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+    labs(y = "Baseline change",
+         title = "Change in score vs the baseline split by the session")
 ```
 
 ## Supermarket improvement during the 6 weeks
