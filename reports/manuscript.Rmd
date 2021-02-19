@@ -4,14 +4,15 @@ author: "Lukáš 'hejtmy' Hejtmánek"
 date: "15/02/2021"
 output: html_document
 ---
-```{r setup, echo = FALSE}
+```{r setup, echo = FALSE, message = FALSE}
 library(tidyverse)
 library(lmerTest)
 library(lme4)
 library(helprs)
 library(papaja)
 source("../functions/cdz-preprocess.R")
-knitr::opts_chunk$set(echo = FALSE, warning= FALSE)
+source("functions/reporting.R")
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
 df_results <- read.table("../run2-results-supermarket-sessions.csv", sep = ";",
                          header = TRUE)
 
@@ -19,7 +20,6 @@ df_demographics <- read.table("../demographics.csv", sep = ";", header = TRUE)
 df_ids <- read.table("../information.csv", header = TRUE, sep = ";")
 
 df_sessions <- read.table("../sessions.csv", header = TRUE, sep = ";")
-
 
 # Combine with demographics
 df_results <- df_demographics %>%
@@ -50,6 +50,16 @@ df_rbans <- read.table("../rbans.csv", sep = ";", header = TRUE) %>%
   add_session_to_rbans(df_demographics) %>%
   add_summaries_to_rbans()
 
+good_participants <- df_rbans %>% 
+  group_by(rbansid) %>%
+  filter(!is.na(testpameti)) %>%
+  summarise(n = n()) %>%
+  filter(n >= 2) %>%
+  pull(rbansid)
+
+df_rbans <- df_rbans %>%
+  filter(rbansid %in% good_participants)
+
 df_rbans_long <- df_rbans %>%
     pivot_longer(-c(rbansid, trenink, diagnosis, first_training, session),
                  names_to = "subtest", values_to = "score") %>%
@@ -65,31 +75,23 @@ df_rbans_long <- df_rbans_long %>%
 
 ## Questionnaire ----
 df_questionnaire <- read.table("../questionnaire.csv", sep = ";", header = TRUE) %>%
-  mutate_at(vars(starts_with(c("vr", "paper", "supermarket"))), function(x){ifelse(x == 6, NA, x)})
-
-df_questionnaire <- df_questionnaire %>%
+  mutate_at(vars(starts_with(c("vr", "paper", "supermarket"))), 
+            function(x){ifelse(x == 6, NA, x)}) %>%
   left_join(df_demographics, c("rbansid" = "rbansid"))
-
-```
-
-## Demographics
-```{r}
-good_participants <- df_rbans %>% 
-  group_by(rbansid) %>%
-  filter(!is.na(testpameti)) %>%
-  summarise(n = n()) %>%
-  filter(n >= 2) %>%
-  pull(rbansid)
 
 df_demographics_good <- df_demographics %>%
   filter(rbansid %in% good_participants)
-table(df_demographics_good$gender)['male']
-mean_and_sd_report(df_demographics[df_demographics$gender == "male", "age"])
 ```
 
-A total of `r nrow(df_demographics)` participants were recruited. Only those participants who completed at least one intervention session were included in the subsequent analyses: `r nrow(df_demographics_good)` in total, `r table(df_demographics_good$gender)['male']` male (`r mean_and_sd_report(df_demographics[df_demographics$gender == "male", "age"])`), female `r table(df_demographics_good$gender)['female']` (`r mean_and_sd_report(df_demographics[df_demographics$gender == "female", "age"])`). 
+## Methods
+Due to missing standardization procedures for calculating RBANS IQ scores in version C and an arguable difference between the three versions, we have opted to use the raw scores and not the standard metrics in RBANS related calculations. We normalized our raw scores in each RBANS domain for each version separately. As our models take RBANS version into account to control for potential raw score differences between different versions and because of the normalization procedure, we consider this approach in our scenario to be more statistically powerful.
+
+## Demographics
+
+A total of `r nrow(df_demographics)` participants were recruited. Only those participants who completed at least one intervention session were included in the subsequent analyses: `r nrow(df_demographics_good)` in total, `r table(df_demographics_good$gender)['male']` male (`r mean_and_sd_report(df_demographics[df_demographics$gender == "male", "age"])`), female `r table(df_demographics_good$gender)['female']` (`r mean_and_sd_report(df_demographics[df_demographics$gender == "female", "age"])`).
 
 Demografická tabulka s průměry délky onemocnění, věkem, vzděláním atp - případně vytvořím sama, můžeš třeba jen vysypat ta data (a nebo to taky udělám)
+
 ```{r}
 df_demographics_good %>%
   select(age, ilness_duration_years) %>%
@@ -105,7 +107,7 @@ df_demographics_good %>%
 
 df_demographics_good %>%
   count(education) %>%
-  knitr::kable
+  knitr::kable()
 ```
 
 Adherence rate – potřebujeme info o tom, kolik lidí bylo zahrnuto do studie (splnili kritéria), kolik lidí odpadlo v průběhu VR  nebo TP, kolik lidí odmítlo začít VR/TP - já bych doplnila důvody odpadu
@@ -113,34 +115,128 @@ Adherence rate – potřebujeme info o tom, kolik lidí bylo zahrnuto do studie 
 ## Questionnaire
 
 ```{r}
-df_temp <- df_questionnaire_long %>%
-  group_by(question_area, question_focus) %>%
-  summarise(mean = mean_and_sd_report(score)) %>%
-  pivot_wider(names_from = question_focus, values_from = mean)
-
 df_questionnaire_long <- df_questionnaire %>%
   pivot_longer(cols = c(starts_with(c("vr", "paper")), -ends_with("feedback")),
                names_to = "questionnaire_section", values_to = "score") %>%
   separate(questionnaire_section, sep = "_", into = c("question_focus", "question_area"),
            extra="merge")
 
+df_temp <- df_questionnaire_long %>%
+  group_by(question_area, question_focus) %>%
+  summarise(mean = mean_and_sd_report(score)) %>%
+  pivot_wider(names_from = question_focus, values_from = mean)
+
 df_questionnaire_long %>%
   group_by(question_area) %>%
   summarise(t.test = apa_print(t.test(score~question_focus))$statistic) %>%
   right_join(df_temp, by = "question_area") %>%
-  select(question_area, paper, vr, t.test)
+  select(question_area, paper, vr, t.test) %>%
   knitr::kable(digits = 3, caption = "")
-  
+
 t_questionnaire_repeat <- t.test(df_questionnaire$vr_would_repeat, df_questionnaire$paper_would_repeat)
 ```
 
 The questionnaire aimed at assesing patients subjective perception of the intervention in terms of difficulty, fun or improvement indicate no significant difference between the paper tests and the VR tests in either of the five categories (see table XXX). Although the patients seem to give a slight edge to the paper tests in terms of repeatability `r apa_print(t_questionnaire_repeat)$statistic`. This can be due to arguably (XXXX higher demands of the VR tests or lack of social interaction ??) and is addressed in the discussion.
 
-
 ## Supermarket
 
-Supermarket – reportovat zlepšení v difficulty achieved  (celkový graf) a v čase trialů - linear mixed models (možná se podívat na ten součet N correct za session + correct ration pro úroveň 6, 7, 8)
+```{r}
+df_results_remediation %>%
+  group_by(session, n_items) %>%
+  summarise(correct_ratio = mean_and_sd_report(correct_ratio),
+            time = mean_and_sd_report(results_time),
+            trajectory = mean_and_sd_report(results_trajectory)) %>%
+  filter(session == 2 | session == 12) %>%
+  knitr::kable(caption = "Select what might be relevant or what to aggregate together")
+```
 
-RBANS – dle pokynů Ivety a dle počtů lidí se mrknout na vliv pořadí a verze RBANS a tréninku
+```{r}
+df_results_remediation %>%
+  select(rbansid, session, max_difficulty) %>%
+  distinct() %>%
+  ggplot(aes(session, max_difficulty)) + 
+    geom_jitter(height = 0, width = 0.15) +
+    geom_smooth(method = "lm") +
+    scale_x_continuous(breaks = seq(2,12,1)) + theme_apa() +
+    labs(y = "Maximum difficulty achieved", x = "Session", 
+         title = "Maximum difficulty achieved as an effect of session")
 
-RBANS – dodat prosím srovnání (i když je jasné, že je nesignifikantní), dodat tabulku s průměry před a po a SD a non-signifikance, graf změny (ten, co je asi nejvíc vypovídající, change vůči baseline?)
+lmer_diff_session <- df_results_remediation %>%
+  select(rbansid, session, max_difficulty) %>%
+  distinct() %>%
+  lmer(max_difficulty ~ session + (1|rbansid), data = .)
+
+lmer_time_session_trial <- lmer(results_time ~ session + n_items + (1|participant), data = df_results_remediation)
+
+lmer_trajectory_session_trial <- lmer(results_trajectory ~ session + n_items + (1|participant), data = df_results_remediation)
+```
+
+Using mixed effect modeling we looked at how patients learned the task as the cognitive trainign progressed. We observed that participants were continously able to improve and proceed to more difficult trials as the training progressed `r report_mixed_effect(lmer_diff_session, "session")`. 
+
+As the trajectory and time of trials is dependent both on learning as well as task difficulty (more items take longer to pick up), we modelled the trial time and trajectory with both session and trial difficulty as a predictor. We  observed that participants improved in both these measures as cognitive training progressed, seeing decrease in trial trajectories `r report_mixed_effect(lmer_trajectory_session_trial, "session")` and trial times `r report_mixed_effect(lmer_time_session_trial, "session")` with each new session.
+
+## RBANS
+
+```{r}
+df_rbans %>%
+  group_by(session, trenink) %>%
+  summarise(mean_celek = mean_and_sd_report(dim_celek),
+            n = sum(!is.na(dim_celek))) %>%
+  knitr::kable()
+```
+
+```{r}
+df_rbans_long %>%
+  filter(grepl("dim_", subtest)) %>%
+  mutate(session = session -1) %>%
+  ggplot(aes(subtest, z_score, fill = trenink)) + 
+  geom_boxplot() +
+  facet_wrap(~session) +
+  theme_apa() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position = c(0.5,1), legend.direction = "horizontal") +
+  labs(title = "Standardized scores of rbans dimensions in first and second session\nWill edit labels and colors if we keep this")
+
+baseline_rbans(df_rbans) %>%
+    pivot_longer(-c(rbansid, trenink, diagnosis, first_training, session),
+                 names_to = "subtest", values_to = "score") %>%
+  filter(grepl("dim_", subtest)) %>%
+  mutate(session = session -1) %>%
+  ggplot(aes(subtest, score, fill = trenink)) +
+    geom_boxplot() +
+    geom_hline(yintercept = 0) +
+    facet_wrap(~session) +
+    theme_apa() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position = c(0.5,1), legend.direction = "horizontal") +
+    labs(y = "Baseline change",
+         title = "Change in score vs the baseline split by the session\nWill edit labels and colors if we keep this")
+```
+
+```{r}
+df_rbans_no_baseline <- filter(df_rbans, session != 1)
+```
+
+
+```{r}
+temp_mixed_func <- function(varname){
+  out <- df_rbans_long %>%
+    filter(subtest == varname, session > 1) %>%
+    lmer(z_score ~ trenink + factor(session) + (1|rbansid), data = .)
+  return(out)
+}
+
+lmer_celek <- temp_mixed_func("dim_celek")
+lmer_kratkodobapamet <- temp_mixed_func("dim_kratkodobapamet")
+lmer_dlouhodobapamet <- temp_mixed_func("dim_dlouhodobapamet")
+lmer_pozornost <-temp_mixed_func("dim_pozornost")
+lmer_rec <- temp_mixed_func("dim_rec")
+lmer_vizuoprostor <- temp_mixed_func("dim_vizuoprostor")
+
+dims <- c("dim_celek", "dim_kratkodobapamet", "dim_dlouhodobapamet",
+          "dim_pozornost", "dim_rec", "dim_vizuoprostor")
+res <- sapply(dims, function(x){report_mixed_effect(temp_mixed_func(x), 2)})
+knitr::kable(as.data.frame(res), caption = "Trenink as a predictor of RBANS performance")
+```
+
+Using linear mixed effect modeling we explored the effect of the intervention as well as the session on the RBANS scores with the participant as a random effect to remove individual differences in RBANS performance. We have not found any effect, neither positive nor negative, of intervention type (see table XXX). We have only found a negative effect of session on the normalized total RBANS score `r report_mixed_effect(lmer_celek, 3)` with people at the end of the study (thrid RBANS, both interventions completed) scoring marginally worse than in previous tests. This can be due to XXXXX
