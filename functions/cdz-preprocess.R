@@ -40,6 +40,8 @@ add_summaries_to_rbans <- function(df_rbans){
            dim_dlouhodobapamet = vybaveniseznamu + rekognice + vybavenipovidky + vybavenifigury,
            dim_pozornost = opakovanicisel + symboly,
            dim_rec = pojmenovaniobrazku + verbalnifluence,
-           dim_vizuoprostor = kopiefigury + orientaceprimek)
+           dim_vizuoprostor = kopiefigury + orientaceprimek,
+           dim_celek = dim_kratkodobapamet + dim_dlouhodobapamet + dim_pozornost +
+             dim_rec + dim_vizuoprostor)
   return(df_rbans)
 }
