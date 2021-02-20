@@ -50,7 +50,7 @@ df_rbans <- read.table("../rbans.csv", sep = ";", header = TRUE) %>%
   add_session_to_rbans(df_demographics) %>%
   add_summaries_to_rbans()
 
-good_participants <- df_rbans %>% 
+good_participants <- df_rbans %>%
   group_by(rbansid) %>%
   filter(!is.na(testpameti)) %>%
   summarise(n = n()) %>%
@@ -160,7 +160,9 @@ df_results_remediation %>%
     scale_x_continuous(breaks = seq(2,12,1)) + theme_apa() +
     labs(y = "Maximum difficulty achieved", x = "Session", 
          title = "Maximum difficulty achieved as an effect of session")
+```
 
+```{r mixed models vSST results}
 lmer_diff_session <- df_results_remediation %>%
   select(rbansid, session, max_difficulty) %>%
   distinct() %>%
@@ -169,19 +171,28 @@ lmer_diff_session <- df_results_remediation %>%
 lmer_time_session_trial <- lmer(results_time ~ session + n_items + (1|participant), data = df_results_remediation)
 
 lmer_trajectory_session_trial <- lmer(results_trajectory ~ session + n_items + (1|participant), data = df_results_remediation)
+
+lmer_correct_session_6_9 <- lmer(correct_ratio ~ session + n_items + (1|participant), data = filter(df_results_remediation, n_items >= 6))
 ```
 
 Using mixed effect modeling we looked at how patients learned the task as the cognitive trainign progressed. We observed that participants were continously able to improve and proceed to more difficult trials as the training progressed `r report_mixed_effect(lmer_diff_session, "session")`. 
 
-As the trajectory and time of trials is dependent both on learning as well as task difficulty (more items take longer to pick up), we modelled the trial time and trajectory with both session and trial difficulty as a predictor. We  observed that participants improved in both these measures as cognitive training progressed, seeing decrease in trial trajectories `r report_mixed_effect(lmer_trajectory_session_trial, "session")` and trial times `r report_mixed_effect(lmer_time_session_trial, "session")` with each new session.
+As the trajectory and time of trials is dependent both on learning as well as task difficulty (more items take longer to pick up), we modelled the trial time and trajectory with both session and trial difficulty as a predictor. We  observed that participants improved in both these measures as cognitive training progressed, seeing decrease in trial trajectories (`r report_mixed_effect(lmer_trajectory_session_trial, "session")`) and trial times (`r report_mixed_effect(lmer_time_session_trial, "session")`) with each new session. 
+
+One of the other metric we explored previously and found to be indicative of cognitive performance (PLECHATA CS PSY) was the vSST correct ratio. As the correct ratio is dependent on task difficulty (more difficult trials lead to higher performance decline), and as we learned in our previous work that patients only start to struggle after 5 item difficulty, we only analyzed this metric in trials beginning with difficulty of six items. Modeling the correct ratio as a function of session and task difficulty, we observed that indeed the task difficulty significantly decreases the performance in this metric (`r report_mixed_effect(lmer_correct_session_6_9, "n_items")`), but number of completed sessions had no effect (`r report_mixed_effect(lmer_correct_session_6_9, "session")`). 
+
+XXX - discussion?? Drop ? Patients did eventually improve in the vSST, as suggested by the upward trend in achieved difficulty with progressing sessions, and due to the nature of the task (higher difficulty is only triggered if the correct ratio of the current one is perfect) this must mean that patients must have had slightly improved in this metric as well, although this change was much more gradual and is "noised XXX" by the number of trial repetitions patients did.
 
 ## RBANS
 
 ```{r}
 df_rbans %>%
   group_by(session, trenink) %>%
-  summarise(mean_celek = mean_and_sd_report(dim_celek),
-            n = sum(!is.na(dim_celek))) %>%
+  summarise_at(vars(starts_with("dim")), list(desc = mean_and_sd_report,
+            n = ~sum(!is.na(.x)))) %>%
+  mutate(number = dim_kratkodobapamet_n) %>%
+  select(-ends_with("_n")) %>%
+  rename_with(~gsub("dim_(.*)_desc", "\\1", .x)) %>%
   knitr::kable()
 ```
 
@@ -196,33 +207,17 @@ df_rbans_long %>%
   theme(axis.text.x = element_text(angle = 45, hjust = 1),
         legend.position = c(0.5,1), legend.direction = "horizontal") +
   labs(title = "Standardized scores of rbans dimensions in first and second session\nWill edit labels and colors if we keep this")
-
-baseline_rbans(df_rbans) %>%
-    pivot_longer(-c(rbansid, trenink, diagnosis, first_training, session),
-                 names_to = "subtest", values_to = "score") %>%
-  filter(grepl("dim_", subtest)) %>%
-  mutate(session = session -1) %>%
-  ggplot(aes(subtest, score, fill = trenink)) +
-    geom_boxplot() +
-    geom_hline(yintercept = 0) +
-    facet_wrap(~session) +
-    theme_apa() +
-    theme(axis.text.x = element_text(angle = 45, hjust = 1),
-        legend.position = c(0.5,1), legend.direction = "horizontal") +
-    labs(y = "Baseline change",
-         title = "Change in score vs the baseline split by the session\nWill edit labels and colors if we keep this")
 ```
 
 ```{r}
 df_rbans_no_baseline <- filter(df_rbans, session != 1)
 ```
 
-
 ```{r}
 temp_mixed_func <- function(varname){
   out <- df_rbans_long %>%
     filter(subtest == varname, session > 1) %>%
-    lmer(z_score ~ trenink + factor(session) + (1|rbansid), data = .)
+    lmer(z_score ~ trenink*factor(session) + (1|rbansid), data = .)
   return(out)
 }
 
