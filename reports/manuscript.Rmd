@@ -21,30 +21,6 @@ df_ids <- read.table("../information.csv", header = TRUE, sep = ";")
 
 df_sessions <- read.table("../sessions.csv", header = TRUE, sep = ";")
 
-# Combine with demographics
-df_results <- df_demographics %>%
-  left_join(df_ids, by = "rbansid") %>%
-  select(rbansid, vrid) %>% 
-  filter(!is.na(rbansid) & !is.na(vrid)) %>%
-  right_join(df_results, by = c("vrid" = "participant")) %>%
-  mutate(participant = vrid) %>%
-  select(-vrid)
-
-df_results <- df_results %>%
-  mutate(total_picked_items = n_correct_items + n_extra_items,
-         correct_ratio = n_correct_items/n_items,
-         extra_ratio = n_extra_items/n_items) %>%
-  group_by(participant, session) %>%
-  mutate(n_trials = n(), 
-         max_difficulty = max(n_items)) %>%
-  ungroup()
-
-# First session was supposedly weird, and only few people did more than 12
-df_results <- filter(df_results, session <= 12, session > 1)
-
-df_results_remediation <- filter(df_results, type == "remediation")
-df_results_test <- filter(df_results, type == "test")
-
 ## RBANS ----
 df_rbans <- read.table("../rbans.csv", sep = ";", header = TRUE) %>%
   add_session_to_rbans(df_demographics) %>%
@@ -73,6 +49,30 @@ df_rbans_long <- df_rbans_long %>%
             .groups="drop") %>%
   right_join(df_rbans_long, by = c("trenink", "first_training", "subtest"))
 
+## SUPERMARKET ------
+df_results <- df_demographics %>%
+  left_join(df_ids, by = "rbansid") %>%
+  select(rbansid, vrid) %>% 
+  filter(!is.na(rbansid) & !is.na(vrid)) %>%
+  right_join(df_results, by = c("vrid" = "participant")) %>%
+  mutate(participant = vrid) %>%
+  select(-vrid)
+
+df_results <- df_results %>%
+  mutate(total_picked_items = n_correct_items + n_extra_items,
+         correct_ratio = n_correct_items/n_items,
+         extra_ratio = n_extra_items/n_items) %>%
+  group_by(participant, session) %>%
+  mutate(n_trials = n(), 
+         max_difficulty = max(n_items)) %>%
+  ungroup()
+
+# First session was supposedly weird, and only few people did more than 12
+df_results <- filter(df_results, session <= 12, session > 1)
+df_results <- filter(df_results, rbansid %in% good_participants)
+df_results_remediation <- filter(df_results, type == "remediation")
+df_results_test <- filter(df_results, type == "test")
+
 ## Questionnaire ----
 df_questionnaire <- read.table("../questionnaire.csv", sep = ";", header = TRUE) %>%
   mutate_at(vars(starts_with(c("vr", "paper", "supermarket"))), 
@@ -98,7 +98,7 @@ df_demographics_good %>%
   pivot_longer(everything()) %>%
   group_by(name) %>%
   summarise(mean = mean(value, na.rm = TRUE),
-            sd = mean(value, na.rm = TRUE)) %>%
+            sd = sd(value, na.rm = TRUE)) %>%
   knitr::kable(digits = 3)
 
 df_demographics_good %>%
@@ -110,6 +110,38 @@ df_demographics_good %>%
   knitr::kable()
 ```
 
+### Different diagnoses
+
+```{r}
+df_demographics_good %>%
+  mutate(diagnosis = sapply(diagnosis, function(x){
+    if(grepl("F3.*", x)) return("affective")
+    if(grepl("F2.*", x)) return("schizophrenia")
+  })) %>%
+  count(diagnosis, first_training) %>%
+  pivot_wider(names_from = diagnosis, values_from = n) %>%
+  knitr::kable()
+
+df_rbans_long %>%
+  filter(grepl("dim_", subtest)) %>%
+  ggplot(aes(subtest, z_score, fill=diagnosis)) +
+  geom_boxplot()
+
+df_diag_difference <- df_rbans_long %>%
+  filter(grepl("dim_", subtest)) %>%
+  group_by(subtest) %>%
+  summarise(t_test = apa_print(t.test(z_score~diagnosis))$statistic, 
+            .groups = "drop")
+
+df_rbans_long %>%
+  filter(grepl("dim_", subtest)) %>%
+  group_by(subtest, diagnosis) %>%
+  summarise(mean = mean(z_score, na.rm = TRUE)) %>%
+  pivot_wider(names_from = diagnosis, values_from = mean) %>%
+  right_join(df_diag_difference, by = "subtest") %>%
+  knitr::kable(digits = 3)
+```
+
 Adherence rate – potřebujeme info o tom, kolik lidí bylo zahrnuto do studie (splnili kritéria), kolik lidí odpadlo v průběhu VR  nebo TP, kolik lidí odmítlo začít VR/TP - já bych doplnila důvody odpadu
 
 ## Questionnaire
@@ -118,7 +150,8 @@ Adherence rate – potřebujeme info o tom, kolik lidí bylo zahrnuto do studie 
 df_questionnaire_long <- df_questionnaire %>%
   pivot_longer(cols = c(starts_with(c("vr", "paper")), -ends_with("feedback")),
                names_to = "questionnaire_section", values_to = "score") %>%
-  separate(questionnaire_section, sep = "_", into = c("question_focus", "question_area"),
+  separate(questionnaire_section, sep = "_",
+           into = c("question_focus", "question_area"),
            extra="merge")
 
 df_temp <- df_questionnaire_long %>%
@@ -133,10 +166,11 @@ df_questionnaire_long %>%
   select(question_area, paper, vr, t.test) %>%
   knitr::kable(digits = 3, caption = "")
 
-t_questionnaire_repeat <- t.test(df_questionnaire$vr_would_repeat, df_questionnaire$paper_would_repeat)
+t_questionnaire_repeat <- t.test(df_questionnaire$vr_would_repeat,
+                                 df_questionnaire$paper_would_repeat)
 ```
 
-The questionnaire aimed at assesing patients subjective perception of the intervention in terms of difficulty, fun or improvement indicate no significant difference between the paper tests and the VR tests in either of the five categories (see table XXX). Although the patients seem to give a slight edge to the paper tests in terms of repeatability `r apa_print(t_questionnaire_repeat)$statistic`. This can be due to arguably (XXXX higher demands of the VR tests or lack of social interaction ??) and is addressed in the discussion.
+The questionnaire aimed at assessing patients’ subjective perception of the intervention in terms of difficulty, fun or improvement indicate no significant difference between the standard treatment and the VEs program in either of the five categories (see table XXX). Although the patients seem to give a slight edge to the paper tests in terms of repeatability `r apa_print(t_questionnaire_repeat)$statistic`.
 
 ## Supermarket
 
@@ -175,9 +209,9 @@ lmer_trajectory_session_trial <- lmer(results_trajectory ~ session + n_items + (
 lmer_correct_session_6_9 <- lmer(correct_ratio ~ session + n_items + (1|participant), data = filter(df_results_remediation, n_items >= 6))
 ```
 
-Using mixed effect modeling we looked at how patients learned the task as the cognitive trainign progressed. We observed that participants were continously able to improve and proceed to more difficult trials as the training progressed `r report_mixed_effect(lmer_diff_session, "session")`. 
+Using mixed effect modeling we looked at how patients learned the task as the cognitive training progressed. We observed that participants were continuously able to improve and proceed to more difficult trials as the training progressed `r report_mixed_effect(lmer_diff_session, "session")`. 
 
-As the trajectory and time of trials is dependent both on learning as well as task difficulty (more items take longer to pick up), we modelled the trial time and trajectory with both session and trial difficulty as a predictor. We  observed that participants improved in both these measures as cognitive training progressed, seeing decrease in trial trajectories (`r report_mixed_effect(lmer_trajectory_session_trial, "session")`) and trial times (`r report_mixed_effect(lmer_time_session_trial, "session")`) with each new session. 
+As the trajectory and time of trials is dependent both on learning as well as task difficulty (more items take longer to pick up), we modeled the trial time and trajectory with both session and trial difficulty as a predictor. We  observed that participants improved in both these measures as cognitive training progressed, seeing decrease in trial trajectories (`r report_mixed_effect(lmer_trajectory_session_trial, "session")`) and trial times (`r report_mixed_effect(lmer_time_session_trial, "session")`) with each new session. 
 
 One of the other metric we explored previously and found to be indicative of cognitive performance (PLECHATA CS PSY) was the vSST correct ratio. As the correct ratio is dependent on task difficulty (more difficult trials lead to higher performance decline), and as we learned in our previous work that patients only start to struggle after 5 item difficulty, we only analyzed this metric in trials beginning with difficulty of six items. Modeling the correct ratio as a function of session and task difficulty, we observed that indeed the task difficulty significantly decreases the performance in this metric (`r report_mixed_effect(lmer_correct_session_6_9, "n_items")`), but number of completed sessions had no effect (`r report_mixed_effect(lmer_correct_session_6_9, "session")`). 
 
@@ -199,14 +233,24 @@ df_rbans %>%
 ```{r}
 df_rbans_long %>%
   filter(grepl("dim_", subtest)) %>%
-  mutate(session = session -1) %>%
-  ggplot(aes(subtest, z_score, fill = trenink)) + 
-  geom_boxplot() +
-  facet_wrap(~session) +
-  theme_apa() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1),
-        legend.position = c(0.5,1), legend.direction = "horizontal") +
-  labs(title = "Standardized scores of rbans dimensions in first and second session\nWill edit labels and colors if we keep this")
+  mutate(session = paste0("session ", session - 1),
+         fac_subtest = factor(subtest, levels = c("dim_celek", "dim_kratkodobapamet",
+                                                  "dim_dlouhodobapamet", "dim_rec",
+                                                  "dim_pozornost", "dim_vizuoprostor"))) %>%
+  ggplot(aes(fac_subtest, z_score, fill = trenink)) +
+    geom_boxplot() +
+    facet_wrap(~session,  strip.position = "bottom") +
+    scale_x_discrete(labels = c("dim_celek" = "Total", "dim_kratkodobapamet" = "Immediate memory", 
+    "dim_vizuoprostor" = "Visuospatial abilities", "dim_rec" = "Speech", "dim_pozornost" = "Attention",
+    "dim_dlouhodobapamet" = "Long term memory")) +
+    scale_fill_discrete(labels = c("baseline", "TP" = "Standard treatment",
+                                   "VR" = "VEs program")) +
+    theme_apa() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1),
+          legend.position = c(0.5,1), legend.direction = "horizontal") +
+    labs(x = "", y = "Standardized score",
+         title = "Standardized scores of RBANS cognitive domains",
+         fill = "")
 ```
 
 ```{r}
@@ -217,7 +261,7 @@ df_rbans_no_baseline <- filter(df_rbans, session != 1)
 temp_mixed_func <- function(varname){
   out <- df_rbans_long %>%
     filter(subtest == varname, session > 1) %>%
-    lmer(z_score ~ trenink*factor(session) + (1|rbansid), data = .)
+    lmer(z_score ~ trenink + factor(session) + (1|rbansid), data = .)
   return(out)
 }
 
@@ -231,7 +275,8 @@ lmer_vizuoprostor <- temp_mixed_func("dim_vizuoprostor")
 dims <- c("dim_celek", "dim_kratkodobapamet", "dim_dlouhodobapamet",
           "dim_pozornost", "dim_rec", "dim_vizuoprostor")
 res <- sapply(dims, function(x){report_mixed_effect(temp_mixed_func(x), 2)})
-knitr::kable(as.data.frame(res), caption = "Trenink as a predictor of RBANS performance")
+knitr::kable(as.data.frame(res),
+             caption = "Trenink as a predictor of RBANS performance. Coefficients are for VR in contrast to TP (negative = VR does worse)")
 ```
 
-Using linear mixed effect modeling we explored the effect of the intervention as well as the session on the RBANS scores with the participant as a random effect to remove individual differences in RBANS performance. We have not found any effect, neither positive nor negative, of intervention type (see table XXX). We have only found a negative effect of session on the normalized total RBANS score `r report_mixed_effect(lmer_celek, 3)` with people at the end of the study (thrid RBANS, both interventions completed) scoring marginally worse than in previous tests. This can be due to XXXXX
+Using linear mixed effect modeling we explored the effect of the intervention as well as the session on the RBANS scores with the participant as a random effect to remove within subject differences in RBANS performance. We have not found any effect, neither positive nor negative, of intervention type (see table XXX). We have only found a negative effect of session on the normalized total RBANS score `r report_mixed_effect(lmer_celek, 3)` with people at the end of the study (third RBANS, both interventions completed) scoring marginally worse than in previous tests. This can be due to XXXXX
