@@ -168,11 +168,14 @@ df_questionnaire_long %>%
   select(question_area, paper, vr, t.test) %>%
   knitr::kable(digits = 3, caption = "")
 
+n_vr <- sum(!is.na(df_questionnaire$vr_benefit))
+n_paper <- sum(!is.na(df_questionnaire$paper_fun))
+
 t_questionnaire_repeat <- t.test(df_questionnaire$vr_would_repeat,
                                  df_questionnaire$paper_would_repeat)
 ```
 
-The questionnaire aimed at assessing patients’ subjective perception of the intervention in terms of difficulty, fun or improvement indicate no significant difference between the standard treatment and the VEs program in either of the five categories (see table XXX). Although the patients seem to give a slight edge to the paper tests in terms of repeatability `r apa_print(t_questionnaire_repeat)$statistic`.
+The questionnaire aimed at assessing patients’ subjective perception of the intervention in terms of difficulty, fun or improvement indicate no significant difference between the standard treatment and the VEs program in either of the five categories (see table XXX). `r n_vr` participants answered the questions about the VR portion of the program and `n_paper` about the standard treatment. Although the patients seem to give a slight edge to the paper tests in terms of repeatability `r apa_print(t_questionnaire_repeat)$statistic`.
 
 ## Supermarket
 
@@ -231,6 +234,7 @@ df_rbans %>%
   knitr::kable()
 ```
 
+
 ```{r}
 df_rbans_long %>%
   filter(grepl("dim_", subtest)) %>%
@@ -269,7 +273,7 @@ temp_mixed_func <- function(varname){
 lmer_celek <- temp_mixed_func("dim_celek")
 lmer_kratkodobapamet <- temp_mixed_func("dim_kratkodobapamet")
 lmer_dlouhodobapamet <- temp_mixed_func("dim_dlouhodobapamet")
-lmer_pozornost <-temp_mixed_func("dim_pozornost")
+lmer_pozornost <- temp_mixed_func("dim_pozornost")
 lmer_rec <- temp_mixed_func("dim_rec")
 lmer_vizuoprostor <- temp_mixed_func("dim_vizuoprostor")
 
@@ -277,11 +281,52 @@ dims <- c("dim_celek", "dim_kratkodobapamet", "dim_dlouhodobapamet",
           "dim_pozornost", "dim_rec", "dim_vizuoprostor")
 res <- sapply(dims, function(x){report_mixed_effect(temp_mixed_func(x), 2)})
 knitr::kable(as.data.frame(res),
-             caption = "Trenink as a predictor of RBANS performance. Coefficients are for VR in contrast to TP (negative = VR does worse)")
+             caption = "Trenink as a predictor of RBANS performance. 
+             Coefficients are for VR in contrast to TP (negative = VR does worse)")
+
 ```
 
 Using linear mixed effect modeling we explored the effect of the intervention as well as the session on the RBANS scores with the participant as a random effect to remove within subject differences in RBANS performance. We have not found any effect, neither positive nor negative, of intervention type (see table XXX). We have only found a negative effect of session on the normalized total RBANS score `r report_mixed_effect(lmer_celek, 3)` with people at the end of the study (third RBANS, both interventions completed) scoring marginally worse than in previous tests. This can be due to XXXXX
 
+```{r rbans czech norms, eval=FALSE}
+df_rbans_long %>%
+  filter(grepl("iq_", subtest)) %>%
+  ggplot(aes(subtest, score, fill = factor(session))) +
+    geom_boxplot() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1),
+          legend.position  = "top", legend.direction = "horizontal")
+
+df_rbans_long %>%
+  filter(grepl("dim_", subtest)) %>%
+  ggplot(aes(subtest, score, fill = factor(session))) +
+    geom_boxplot() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1),
+          legend.position  = "top", legend.direction = "horizontal")
+
+df_rbans_long %>%
+  filter(!grepl("(iq|dim)_", subtest)) %>%
+  ggplot(aes(subtest, score, fill = factor(session))) +
+    geom_boxplot() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1),
+          legend.position  = "top", legend.direction = "horizontal")
+
+temp_mixed_func <- function(varname){
+  out <- df_rbans_long %>%
+    filter(subtest == varname, session > 1) %>%
+    lmer(score ~ trenink + factor(session) + (1|rbansid), data = .)
+  return(out)
+}
+
+temp_glm_func <- function(varname){
+  out <- df_rbans_long %>%
+    filter(subtest == varname) %>%
+    glm(score ~ session, data = .)
+  return(out)
+}
+
+summary(temp_mixed_func("iq_celek"))
+summary(temp_glm_func("iq_rec"))
+```
 
 ```{r session model explanation,eval = FALSE}
 temp_mixed_func <- function(varname){
@@ -328,4 +373,12 @@ df_rbans_long %>%
   filter(subtest == "dim_celek") %>%
   group_by(session) %>%
   summarise(mean_and_sd_report(score))
+```
+
+```{r}
+df_rbans_long %>%
+  filter(grepl("iq_", subtest)) %>%
+  mutate(session = paste0("session ", session - 1)) %>%
+  ggplot(aes(subtest, score, fill = trenink)) +
+    geom_boxplot()
 ```
