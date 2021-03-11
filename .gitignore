@@ -4,6 +4,7 @@ playground*
 # Outputs
 *.csv
 *.html
+*.png
 
 !docs/*.html
 
