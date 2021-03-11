@@ -13,6 +13,9 @@ library(papaja)
 source("../functions/cdz-preprocess.R")
 source("functions/reporting.R")
 knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+
+CDZ_COLORS <- c("#63873a", "#f3f7e9", "#25aae1", "#81c6e2")
+
 df_results <- read.table("../run2-results-supermarket-sessions.csv", sep = ";",
                          header = TRUE)
 
@@ -130,18 +133,22 @@ df_rbans_long %>%
   geom_boxplot()
 
 df_diag_difference <- df_rbans_long %>%
-  filter(grepl("dim_", subtest)) %>%
+  filter(grepl("iq_", subtest)) %>%
   group_by(subtest) %>%
-  summarise(t_test = apa_print(t.test(z_score~diagnosis))$statistic, 
+  summarise(t_test = apa_print(t.test(score ~ diagnosis))$statistic, 
             .groups = "drop")
 
 df_rbans_long %>%
-  filter(grepl("dim_", subtest), session == 1) %>%
+  filter(grepl("iq_", subtest), session == 1) %>%
   group_by(subtest, diagnosis) %>%
-  summarise(m = mean_and_sd_report(z_score, type = "parentheses")) %>%
+  summarise(m = mean_and_sd_report(score, type = "parentheses")) %>%
   pivot_wider(names_from = diagnosis, values_from = m) %>%
   right_join(df_diag_difference, by = "subtest") %>%
   knitr::kable(digits = 3)
+
+df_rbans %>%
+  group_by()
+
 ```
 
 Adherence rate – potřebujeme info o tom, kolik lidí bylo zahrnuto do studie (splnili kritéria), kolik lidí odpadlo v průběhu VR  nebo TP, kolik lidí odmítlo začít VR/TP - já bych doplnila důvody odpadu
@@ -168,14 +175,14 @@ df_questionnaire_long %>%
   select(question_area, paper, vr, t.test) %>%
   knitr::kable(digits = 3, caption = "")
 
-n_vr <- sum(!is.na(df_questionnaire$vr_benefit))
+n_vr <- sum(!is.na(df_questionnaire$vr_fun))
 n_paper <- sum(!is.na(df_questionnaire$paper_fun))
 
 t_questionnaire_repeat <- t.test(df_questionnaire$vr_would_repeat,
                                  df_questionnaire$paper_would_repeat)
 ```
 
-The questionnaire aimed at assessing patients’ subjective perception of the intervention in terms of difficulty, fun or improvement indicate no significant difference between the standard treatment and the VEs program in either of the five categories (see table XXX). `r n_vr` participants answered the questions about the VR portion of the program and `n_paper` about the standard treatment. Although the patients seem to give a slight edge to the paper tests in terms of repeatability `r apa_print(t_questionnaire_repeat)$statistic`.
+The questionnaire aimed at assessing patients’ subjective perception of the intervention in terms of difficulty, fun or improvement indicate no significant difference between the standard treatment and the VEs program in either of the five categories (see table XXX). `r n_vr` participants answered the questions about the VR portion of the program and `r n_paper` about the standard treatment. Although the patients seem to give a slight edge to the paper tests in terms of repeatability `r apa_print(t_questionnaire_repeat)$statistic`.
 
 ## Supermarket
 
@@ -195,10 +202,11 @@ df_results_remediation %>%
   distinct() %>%
   ggplot(aes(session, max_difficulty)) + 
     geom_jitter(height = 0, width = 0.15) +
-    geom_smooth(method = "lm") +
-    scale_x_continuous(breaks = seq(2,12,1)) + theme_apa() +
-    labs(y = "Maximum difficulty achieved", x = "Session", 
-         title = "Maximum difficulty achieved as an effect of session")
+    geom_smooth(method = "lm", fill = CDZ_COLORS[4], color = CDZ_COLORS[3]) +
+    scale_x_continuous(breaks = seq(2,12,1)) + 
+    theme_apa() +
+    labs(y = "Maximum difficulty achieved", x = "Session")
+ggsave("figures/fig1-session-difficulty.png",  width = 8, height = 6)
 ```
 
 ```{r mixed models vSST results}
@@ -210,6 +218,11 @@ lmer_diff_session <- df_results_remediation %>%
 lmer_time_session_trial <- lmer(results_time ~ session + n_items + (1|participant), data = df_results_remediation)
 lmer_trajectory_session_trial <- lmer(results_trajectory ~ session + n_items + (1|participant), data = df_results_remediation)
 lmer_correct_session_6_9 <- lmer(correct_ratio ~ session + n_items + (1|participant), data = filter(df_results_remediation, n_items >= 6))
+
+
+lmer_ratio_session <- df_results_remediation %>%
+  lmer(correct_ratio ~ session + n_items + (1|rbansid), data = .)
+summary(lmer_ratio_session)
 ```
 
 Using mixed effect modeling we looked at how patients learned the task as the cognitive training progressed. We observed that participants were continuously able to improve and proceed to more difficult trials as the training progressed `r report_mixed_effect(lmer_diff_session, "session")`. 
@@ -225,37 +238,46 @@ XXX - discussion?? Drop ? Patients did eventually improve in the vSST, as sugges
 ```{r}
 df_rbans %>%
   group_by(session, trenink) %>%
-  summarise_at(vars(starts_with("dim")), list(
+  summarise_at(vars(starts_with("iq_")), list(
             desc = ~mean_and_sd_report(.x, type = "parentheses"),
             n = ~sum(!is.na(.x)))) %>%
-  mutate(number = dim_kratkodobapamet_n) %>%
+  mutate(number = iq_kratkodobapamet_n) %>%
   select(-ends_with("_n")) %>%
-  rename_with(~gsub("dim_(.*)_desc", "\\1", .x)) %>%
+  rename_with(~gsub("iq_(.*)_desc", "\\1", .x)) %>%
   knitr::kable()
 ```
 
 
 ```{r}
 df_rbans_long %>%
-  filter(grepl("dim_", subtest)) %>%
+  filter(grepl("iq_", subtest)) %>%
   mutate(session = paste0("session ", session - 1),
-         fac_subtest = factor(subtest, levels = c("dim_celek", "dim_kratkodobapamet",
-                                                  "dim_dlouhodobapamet", "dim_rec",
-                                                  "dim_pozornost", "dim_vizuoprostor"))) %>%
-  ggplot(aes(fac_subtest, z_score, fill = trenink)) +
+         fac_subtest = factor(subtest, levels = c("iq_celek", "iq_kratkodobapamet",
+                                                  "iq_dlouhodobapamet", "iq_rec",
+                                                  "iq_pozornost", "iq_vizuoprostorschopnosti"))) %>%
+  ggplot(aes(fac_subtest, score, fill = trenink)) +
     geom_boxplot() +
     facet_wrap(~session,  strip.position = "bottom") +
-    scale_x_discrete(labels = c("dim_celek" = "Total", "dim_kratkodobapamet" = "Immediate memory", 
-    "dim_vizuoprostor" = "Visuospatial abilities", "dim_rec" = "Speech", "dim_pozornost" = "Attention",
-    "dim_dlouhodobapamet" = "Long term memory")) +
-    scale_fill_discrete(labels = c("baseline", "TP" = "Standard treatment",
-                                   "VR" = "VEs program")) +
+    scale_x_discrete(labels = c("iq_celek" = "Total", "iq_kratkodobapamet" = "Immediate memory", 
+      "iq_vizuoprostorschopnosti" = "Visuospatial/constructional", "iq_rec" = "Language", 
+      "iq_pozornost" = "Attention", "iq_dlouhodobapamet" = "Delayed memory")) +
+    scale_fill_manual(labels = c("baseline", "TP" = "Standard treatment",
+                                   "VR" = "VEs program"),
+                        values = CDZ_COLORS) +
     theme_apa() +
     theme(axis.text.x = element_text(angle = 45, hjust = 1),
           legend.position = c(0.5,1), legend.direction = "horizontal") +
-    labs(x = "", y = "Standardized score",
-         title = "Standardized scores of RBANS cognitive domains",
+    labs(x = "", y = "RBANS IQ score",
+         title = "IQ scores of RBANS cognitive domains",
          fill = "")
+
+ggsave("figures/fig2-rbans-iq.png",  width = 8, height = 6)
+
+df_rbans_long %>%
+  filter(subtest == "dim_rec") %>%
+  ggplot(aes(score, fill = factor(session))) + 
+  geom_histogram() + 
+  facet_wrap(~trenink)
 ```
 
 ```{r}
@@ -378,7 +400,64 @@ df_rbans_long %>%
 ```{r}
 df_rbans_long %>%
   filter(grepl("iq_", subtest)) %>%
-  mutate(session = paste0("session ", session - 1)) %>%
+  mutate(session = paste0("session ", session - 1),
+         fac_subtest = factor(subtest, levels = c("iq_celek", "iq_kratkodobapamet",
+                                                  "iq_dlouhodobapamet", "iq_rec",
+                                                  "iq_pozornost", "iq_vizuoprostorschopnosti"))) %>%
   ggplot(aes(subtest, score, fill = trenink)) +
-    geom_boxplot()
+    scale_x_discrete(labels = c("iq_celek" = "Total", "iq_kratkodobapamet" = "Immediate memory", 
+    "iq_vizuoprostorschopnosti" = "Visuospatial/constructional", "iq_rec" = "Language", 
+    "iq_pozornost" = "Attention", "iq_dlouhodobapamet" = "Delayed memory")) +
+    geom_boxplot() + 
+    theme_apa() +
+    scale_fill_manual(labels = c("baseline", "TP" = "Standard treatment",
+                                   "VR" = "VEs program"),
+                        values = CDZ_COLORS) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1),
+          legend.position = c(0.5,1), legend.direction = "horizontal") +
+      labs(x = "", y = "RBANS IQ score",
+         title = "IQ scores of RBANS cognitive domains after each intervention",
+         fill = "")
+
+ggsave("figures/fig3-rbans-iq.png",  width = 8, height = 6)
+```
+
+## Tesuceni
+
+Looking at the RBANS improvement as a function of a learning baseline bring significant results UNTIL we consider that the RBANS dimensions are not independent. In other works, person doing well on one often does well in others. We get significant effects of baseline tests in other tests as well (e.g. good baseline performance in orientace primky predicts good performance in ) When we control for the rbans dimension scores by their overall score in the session, the effect of the learning disappears. 
+
+```{r}
+temp_mixed_func <- function(varname){
+  out <- df_temp %>%
+    filter(subtest == varname, session > 1) %>%
+    lmer(score ~ total_score + learning_baseline + factor(session) + (1|rbansid), data = .)
+  return(out)
+}
+
+df_temp2 <- baseline_rbans(df_rbans) %>%
+  left_join(select(df_rbans, rbansid, learning = testuceni), by = "rbansid")
+
+summary(lmer(dim_celek ~ learning + factor(session) + (1|rbansid), data = df_temp2))
+
+df_temp <- df_rbans_long %>%
+  arrange(rbansid, session) %>%
+  group_by(rbansid) %>%
+  mutate(learning_baseline = score[subtest == "testuceni"][1]) %>%
+  group_by(session, .add = TRUE) %>%
+  mutate(total_score = score[subtest == "dim_celek"][1]) %>%
+  ungroup()
+
+
+summary(temp_mixed_func("dim_kratkodobapamet"))
+summary(temp_mixed_func("dim_dlouhodobapamet"))
+summary(temp_mixed_func("dim_pozornost"))
+summary(temp_mixed_func("dim_rec"))
+summary(temp_mixed_func("dim_vizuoprostor"))
+
+dims <- c("dim_kratkodobapamet", "dim_dlouhodobapamet",
+          "dim_pozornost", "dim_rec", "dim_vizuoprostor")
+
+res <- sapply(dims, function(x){report_mixed_effect(temp_mixed_func(x), 3)})
+knitr::kable(as.data.frame(res),
+             caption = "Testuceni in baseline as a predictor of rbans improvement controlled by rbans version (session) and total score")
 ```
