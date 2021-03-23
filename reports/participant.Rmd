@@ -1,6 +1,6 @@
 ---
-author: "Lukáš 'hejtmy' Hejtmánek"
-date: "`r Sys.Date()`"
+author: "Lukáš 'hejtmy' Hejtmánek (hejtmy@gmail.com)"
+date: "`r strftime(Sys.Date(), format = '%e. %m. %Y')`"
 output: html_document
 params:
   participant: NA
@@ -12,11 +12,11 @@ title: "`r paste0('Report pro ', params$participant)`"
 knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
 library(brainvr.supermarket)
 library(tidyverse)
+library(helprs)
 source("../functions/cdz-loading-pilot.R")
 source("../functions/cdz-analysis.R")
 source("../functions/cdz-getters.R")
-par <- list(data_dir = "E:/Google Drive/NUDZ/Projects/CDZ Karvina/VR-tasks/logy/2-pilot_VR-pen-paper/",
-               participant = "bohdan")
+par <- params
 df_sessions <- read.table("../sessions.csv", header = TRUE, sep = ";")
 exps <- load_participant_supermarket(par$data_dir, par$participant)
 
@@ -43,7 +43,7 @@ results <- results %>%
   mutate(n_trials = n()) %>%
   ungroup()
 
-colors <- c("#63873a", "#f3f7e9", "#25aae1", "#81c6e2")
+CDZ_COLORS <- c("#63873a", "#f3f7e9", "#25aae1", "#81c6e2")
 ```
 
 ## Supermarket
@@ -57,7 +57,10 @@ results %>%
   group_by(date.posix) %>%
   summarise(max = max(n_items),
             correct = mean(correct_ratio)) %>%
+  ungroup() %>%
+  mutate(date.posix = as.Date(date.posix)) %>%
   ggplot(aes(date.posix, max)) +
+    scale_x_date(date_labels = "%e.%B") +
     geom_line(aes(y = correct, color= "Úspěšnost"), size = 2) +
     geom_line(aes(y = max/11, color = "Dosažená úroveň"), size = 2) +
     scale_y_continuous(labels = function(x) x*11,
@@ -67,10 +70,27 @@ results %>%
     geom_point(aes(y=max/11), color = colors[1], size = 5) +
     scale_colour_manual(values = colors[c(2,4)]) + 
     theme_bw() +
-    labs(title = "Maximální dosažená úroveň", x = "", y = "Úroveň") +
+    labs(title = "Maximální dosažená úroveň a úspěšnost", 
+         x = "", y = "Úroveň", colour = "") +
     theme(legend.position = "bottom")
 ```
 
+```{r, results = 'asis'}
+generate_trial_graph <- function(exp, i){
+  trial <- get_trial_position(exp, i)
+  cat('<div class="col-md-4 col-sm-12">')
+    print(plot_supermarket_path(trial, background = TRUE, 
+          color = CDZ_COLORS[3], size = 2))
+  cat('</div>')
+}
 
-XXX - problematické předměty
-
+for(i in 1:length(exps)){
+  exp <- exps[[i]]
+  cat(as.character(htmltools::h3("Sezení ", i)))
+  i_trials <- get_finished_trials_indices.supermarket(exp)
+  for(i_trial in i_trials){
+    generate_trial_graph(exp, i_trial)
+  }
+  cat(as.character(htmltools::div(class="row", out)))
+}
+```
