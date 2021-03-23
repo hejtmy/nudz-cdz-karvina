@@ -239,19 +239,24 @@ df_rbans_randcoef_baseline_wide <- baseline_rbans(df_rbans) %>%
 These results are kinda challenging to explain and I am not sure if they are correct :D But the thing is ... when modelling the supermarket performance as an effect of session, we get those individual "intercepts" (basically default skill) and "session_slope" (rate of change - some people learn faster than others) - viz paragraph above. I then use these individual estimates to predict rbans score! Therefore predicting RBANS standardized scores by the "default" skill in supermarket and the "rate of improvement in supermarket" and also the session(arguably participants doing the VR in 2nd iteration should be generally better than those doing it in the 1st). Below are the results for individual rbans scales (those are scaled per session (B has different scaling than C))
 
 ```{r}
-glm(dim_dlouhodobapamet ~ intercept + session_slope + factor(session), data = df_rbans_randcoef_wide_zscore) %>%
+glm(dim_dlouhodobapamet ~ intercept + session_slope + factor(session), 
+    data = df_rbans_randcoef_wide_zscore) %>%
   summary()
 
-glm(dim_kratkodobapamet  ~ intercept + session_slope + factor(session), data = df_rbans_randcoef_wide_zscore) %>%
+glm(dim_kratkodobapamet  ~ intercept + session_slope + factor(session),
+    data = df_rbans_randcoef_wide_zscore) %>%
   summary()
 
-glm(dim_rec ~ intercept + session_slope + factor(session), data = df_rbans_randcoef_wide_zscore) %>%
+glm(dim_rec ~ intercept + session_slope + factor(session),
+    data = df_rbans_randcoef_wide_zscore) %>%
   summary()
 
-glm(dim_pozornost ~ intercept + session_slope + factor(session), data = df_rbans_randcoef_wide_zscore) %>%
+glm(dim_pozornost ~ intercept + session_slope + factor(session),
+    data = df_rbans_randcoef_wide_zscore) %>%
   summary()
 
-glm(dim_vizuoprostor   ~ intercept + session_slope + factor(session), data = df_rbans_randcoef_wide_zscore) %>%
+glm(dim_vizuoprostor   ~ intercept + session_slope + factor(session),
+    data = df_rbans_randcoef_wide_zscore) %>%
   summary()
 ```
 
