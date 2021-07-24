@@ -30,15 +30,30 @@ df_rbans <- get_sheet_rbans()
 ```{r preprocessing}
 df_rbans <- add_session_to_rbans(df_rbans, df_demographics)
 
+good_participants <- df_rbans %>%
+  group_by(rbansid) %>%
+  filter(!is.na(testpameti)) %>%
+  summarise(n = n()) %>%
+  filter(n >= 2) %>%
+  pull(rbansid)
+
+df_rbans <- df_rbans %>%
+  filter(rbansid %in% good_participants)
+
 df_rbans_long <- df_rbans %>%
     pivot_longer(-c(rbansid, trenink, diagnosis, first_training, session),
-                 names_to = "subtest", values_to = "score")
+                 names_to = "subtest", values_to = "score") %>%
+  group_by(session, subtest) %>%
+  mutate(z_score = scale(score)[,1])
 
 df_rbans_long <- df_rbans_long %>%
   group_by(trenink, first_training, subtest) %>%
-  summarise(group_avg = mean(score, na.rm = TRUE)) %>%
+  summarise(group_avg = mean(score, na.rm = TRUE),
+            group_z_avg = mean(z_score, na.rm = TRUE),
+            .groups="drop") %>%
   right_join(df_rbans_long, by = c("trenink", "first_training", "subtest"))
 ```
+
 ```{r}
 df_ids %>%
   count(is_ok, rbans_ok, logy_ok) %>%
@@ -104,4 +119,21 @@ df_rbans_baseline %>%
 ```{r}
 unique(df_rbans_long$subtest)
 c("Vybavenifigury", "vybaveniseznamu", "vybavenipovidky")
+```
+
+```{r}
+df_rbans_long %>%
+  filter(!grepl("(iq_|dim_)", subtest)) %>%
+  ggplot(aes(subtest, score, fill = factor(session))) + geom_boxplot() +
+   theme(axis.text.x = element_text(angle = 45, hjust = 1),
+          legend.position = c(0.5,1), legend.direction = "horizontal") +
+  facet_wrap(~trenink)
+```
+
+```{r}
+df_rbans_long %>%
+  filter(grepl("(iq_)", subtest)) %>%
+  ggplot(aes(subtest, score, fill = factor(session))) + geom_boxplot() +
+   theme(axis.text.x = element_text(angle = 45, hjust = 1),
+          legend.position = c(0.5,1), legend.direction = "horizontal")
 ```

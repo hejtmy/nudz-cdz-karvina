@@ -16,7 +16,7 @@ get_sheet_demographics <- function(preprocess = TRUE, overwrite = FALSE){
   GS_RUN2_DEMOGRAPHICS_RBANS <- "1qMdiLYY7EIbNvoRsE5knjBB24zXT7hgJNUCmwMX7IwY"
   df_demographics <- googlesheets4::range_read(GS_RUN2_DEMOGRAPHICS_RBANS, 
                                              sheet = "demografie", 
-                                             col_types = "ccccccciiiccci")
+                                             col_types = "ccccccciiicccicc")
   if(!preprocess) return(df_demographics)
   colnames(df_demographics) <- c("name", "note", "first_training", "rbans_date",
                                  "rbansid", "retirement", "gender", "age",
