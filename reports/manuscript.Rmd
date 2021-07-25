@@ -542,7 +542,7 @@ knitr::kable(as.data.frame(res),
 temp_mixed_func <- function(varname){
   out <- df_rbans_long %>%
     filter(subtest == varname) %>%
-    lmer(z_score ~ diagnosis + session + (1|rbansid), data = .)
+    lmer(score ~ diagnosis*session + (1|rbansid), data = .)
   return(out)
 }
 
@@ -555,10 +555,13 @@ lmer_vizuoprostor <- temp_mixed_func("dim_vizuoprostor")
 
 dims <- c("dim_celek", "dim_kratkodobapamet", "dim_dlouhodobapamet",
           "dim_pozornost", "dim_rec", "dim_vizuoprostor")
+res <- sapply(dims, function(x){report_mixed_effect(temp_mixed_func(x), "diagnosisschizophrenia:session")})
+knitr::kable(as.data.frame(res),
+             caption = "Interaction between diagnosis and session as a predictor of RBANS performance while controlling for the effect of participant and session. Coefficients are for schizophrenia in contrast to MDD (negative = schizophrenia does worse)")
+
 res <- sapply(dims, function(x){report_mixed_effect(temp_mixed_func(x), "diagnosisschizophrenia")})
 knitr::kable(as.data.frame(res),
-             caption = "Diagnosis as a predictor of RBANS performance while controlling for the effect of participant and session.
-             Coefficients are for schizophrenia in contrast to MDD (negative = schizophrenia does worse)")
+             caption = "Diagnosis as a predictor of RBANS performance while controlling for the effect of participant and session. Coefficients are for schizophrenia in contrast to MDD (negative = schizophrenia does worse)")
 
 res <- sapply(dims, function(x){report_mixed_effect(temp_mixed_func(x), "session")})
 knitr::kable(as.data.frame(res),
